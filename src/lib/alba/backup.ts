@@ -2,6 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { z } from "zod";
+import { APP_NAME } from "@/lib/brand";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -50,7 +51,7 @@ const completionSchema = z.object({
 
 const backupSchema = z.object({
   version: z.literal(1),
-  app: z.literal("alba"),
+  app: z.enum(["alba", "sxchedule"]),
   exportedAt: z.string(),
   habits: z.array(habitSchema),
   completions: z.array(completionSchema),
@@ -58,6 +59,7 @@ const backupSchema = z.object({
     .object({
       notificationsEnabled: z.boolean(),
       minutesBefore: z.number().int().min(0).max(120),
+      theme: z.enum(["light", "dark"]).optional(),
     })
     .optional(),
 });
@@ -66,14 +68,18 @@ export function parseBackup(input: unknown): AlbaBackup {
   const parsed = backupSchema.parse(input);
   return {
     version: 1,
-    app: "alba",
+    app: "sxchedule",
     exportedAt: parsed.exportedAt,
     habits: parsed.habits.map((h) => ({
       ...h,
       remind: h.remind !== false,
     })) as Habit[],
     completions: parsed.completions,
-    settings: parsed.settings ?? DEFAULT_SETTINGS,
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...parsed.settings,
+      theme: parsed.settings?.theme ?? DEFAULT_SETTINGS.theme,
+    },
   };
 }
 
@@ -92,7 +98,7 @@ export async function downloadBackup(backup: AlbaBackup, filename: string) {
       directory: Directory.Cache,
     });
     await Share.share({
-      title: "Respaldo Alba",
+      title: `Respaldo ${APP_NAME}`,
       url: uri,
       dialogTitle: "Exportar respaldo",
     });
@@ -119,6 +125,6 @@ export async function readBackupFile(file: File): Promise<AlbaBackup> {
   try {
     return parseBackup(json);
   } catch {
-    throw new Error("Este archivo no es un respaldo de Alba.");
+    throw new Error(`Este archivo no es un respaldo de ${APP_NAME}.`);
   }
 }

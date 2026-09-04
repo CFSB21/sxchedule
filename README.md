@@ -1,11 +1,11 @@
-# Alba
+# Sxchedule
 
-Rutina diaria con estadísticas, respaldos y avisos. Empaquetada para Android.
+Rutina diaria con estadísticas, respaldos, avisos y modo oscuro. Empaquetada para Android.
 
 ## Instalar en el teléfono
 
 1. Abre la [última versión](https://github.com/CFSB21/alba-rutina/releases/latest).
-2. Descarga `Alba.apk`.
+2. Descarga `Sxchedule.apk`.
 3. En Android permite instalar apps de origen desconocido y ábrela.
 4. En **Datos → Activar avisos** concede notificaciones (y alarmas, si el sistema las pide).
 

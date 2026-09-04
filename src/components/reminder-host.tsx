@@ -7,6 +7,7 @@ import {
   upcomingReminders,
 } from "@/lib/alba/notifications";
 import { useRoutineStore } from "@/lib/alba/store";
+import { APP_NAME } from "@/lib/brand";
 
 export function ReminderHost() {
   const habits = useRoutineStore((s) => s.habits);
@@ -38,7 +39,7 @@ export function ReminderHost() {
           fired.current.add(key);
           const body = reminderBody(item);
           toast(body);
-          void showLocalNotice("Alba", body);
+          void showLocalNotice(APP_NAME, body);
         }, delay),
       );
     }

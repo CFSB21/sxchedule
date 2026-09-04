@@ -1,8 +1,11 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BarChart3, CalendarDays, Database, ListChecks } from "lucide-react";
-import { AlbaMark } from "@/components/alba-mark";
+import { BrandMark } from "@/components/alba-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import { rehydrateRoutineStore, useRoutineStore } from "@/lib/alba/store";
+import { applyTheme } from "@/lib/alba/theme";
 import { currentStreak } from "@/lib/alba/stats";
 import { cn } from "@/lib/utils";
 import { SessionDock } from "@/components/session-dock";
@@ -17,7 +20,15 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
-    void rehydrateRoutineStore();
+    applyTheme(useRoutineStore.getState().settings.theme);
+    void Promise.resolve(rehydrateRoutineStore()).then(() => {
+      applyTheme(useRoutineStore.getState().settings.theme);
+    });
+    return useRoutineStore.subscribe((state, prev) => {
+      if (state.settings.theme !== prev.settings.theme) {
+        applyTheme(state.settings.theme);
+      }
+    });
   }, []);
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -28,14 +39,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
       <aside className="hidden md:flex md:flex-col md:border-r md:border-border md:bg-card md:px-5 md:py-6">
-        <div className="flex items-center gap-2.5 px-1">
-          <AlbaMark />
-          <div>
-            <p className="font-display text-xl leading-none tracking-tight">
-              Alba
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">Tu día, con intención</p>
+        <div className="flex items-start justify-between gap-2 px-1">
+          <div className="flex items-center gap-2.5">
+            <BrandMark />
+            <div>
+              <p className="font-display text-xl leading-none tracking-tight">
+                {APP_NAME}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{APP_TAGLINE}</p>
+            </div>
           </div>
+          <ThemeToggle />
         </div>
         <nav className="mt-8 flex flex-col gap-1">
           {NAV.map((item) => {
@@ -70,14 +84,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-dvh flex-col">
-        <header className="flex items-center justify-between px-4 pt-4 pb-1 md:hidden">
-          <div className="flex items-center gap-2">
-            <AlbaMark className="size-7" />
-            <span className="font-display text-lg tracking-tight">Alba</span>
+        <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-1 md:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <BrandMark className="size-7 shrink-0" />
+            <span className="font-display text-lg tracking-tight">
+              {APP_NAME}
+            </span>
           </div>
-          <p className="text-sm tabular-nums text-muted-foreground">
-            Racha {streak}
-          </p>
+          <div className="flex items-center gap-0.5">
+            <p className="pr-1 text-sm tabular-nums text-muted-foreground">
+              Racha {streak}
+            </p>
+            <ThemeToggle />
+          </div>
         </header>
         <main className="flex-1 px-4 pb-28 md:px-8 md:pt-8 md:pb-16">
           {children}

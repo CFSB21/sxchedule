@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { APP_NAME } from "@/lib/brand";
 import { isComplete } from "./stats";
 import { toDateKey } from "./time";
 import type { Completion, Habit, Settings } from "./types";
@@ -134,7 +135,7 @@ export async function syncNativeAlarms(
   await LocalNotifications.schedule({
     notifications: upcoming.map((item) => ({
       id: item.id,
-      title: "Alba",
+      title: APP_NAME,
       body: reminderBody(item),
       schedule: { at: item.at, allowWhileIdle: true },
       extra: { habitId: item.habitId, dateKey: item.dateKey },

@@ -205,7 +205,7 @@ export const useRoutineStore = create<State>()(
         const s = get();
         return {
           version: 1 as const,
-          app: "alba" as const,
+          app: "sxchedule" as const,
           exportedAt: new Date().toISOString(),
           habits: s.habits,
           completions: s.completions,

@@ -49,14 +49,17 @@ export type Session = {
   running: boolean;
 };
 
+export type ThemeMode = "light" | "dark";
+
 export type Settings = {
   notificationsEnabled: boolean;
   minutesBefore: number;
+  theme: ThemeMode;
 };
 
 export type AlbaBackup = {
   version: 1;
-  app: "alba";
+  app: "alba" | "sxchedule";
   exportedAt: string;
   habits: Habit[];
   completions: Completion[];
@@ -66,4 +69,5 @@ export type AlbaBackup = {
 export const DEFAULT_SETTINGS: Settings = {
   notificationsEnabled: false,
   minutesBefore: 5,
+  theme: "light",
 };

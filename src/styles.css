@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
@@ -31,6 +33,7 @@
   --color-heatmap-2: #8fa99a;
   --color-heatmap-3: #5b7d6c;
   --color-heatmap-4: #2f4a40;
+  --color-overlay: rgb(28 25 21 / 0.4);
 
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -61,6 +64,46 @@
   --motion-slow: 400ms;
   --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+  --color-background: #121410;
+  --color-foreground: #ece8e1;
+  --color-card: #1b1d19;
+  --color-card-foreground: #ece8e1;
+  --color-popover: #1b1d19;
+  --color-popover-foreground: #ece8e1;
+  --color-primary: #b7c9bf;
+  --color-primary-foreground: #141612;
+  --color-secondary: #242720;
+  --color-secondary-foreground: #ece8e1;
+  --color-muted: #242720;
+  --color-muted-foreground: #9a9488;
+  --color-accent: #2a2e27;
+  --color-accent-foreground: #ece8e1;
+  --color-destructive: #d98980;
+  --color-destructive-foreground: #141612;
+  --color-border: #32362e;
+  --color-input: #32362e;
+  --color-ring: #b7c9bf;
+  --color-success: #8fba9c;
+  --color-success-foreground: #141612;
+  --color-heatmap-0: #242720;
+  --color-heatmap-1: #2f4a40;
+  --color-heatmap-2: #5b7d6c;
+  --color-heatmap-3: #8fa99a;
+  --color-heatmap-4: #c5d1c9;
+  --color-overlay: rgb(0 0 0 / 0.62);
+  --shadow-border:
+    0px 0px 0px 1px rgb(236 232 225 / 0.08),
+    0px 1px 2px -1px rgb(0 0 0 / 0.35),
+    0px 2px 4px 0px rgb(0 0 0 / 0.28);
+  --shadow-border-hover:
+    0px 0px 0px 1px rgb(236 232 225 / 0.12),
+    0px 1px 2px -1px rgb(0 0 0 / 0.4),
+    0px 2px 4px 0px rgb(0 0 0 / 0.32);
 }
 
 @layer base {
