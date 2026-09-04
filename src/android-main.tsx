@@ -14,11 +14,12 @@ import { DatosView } from "@/components/datos-view";
 import { RoutineEditor } from "@/components/routine-editor";
 import { StatsView } from "@/components/stats-view";
 import { TodayView } from "@/components/today-view";
+import { YpbView } from "@/components/ypb-view";
 import { AppErrorComponent } from "@/lib/error-component";
 import { todayKey } from "@/lib/alba/time";
 import "./styles.css";
 
-function Home() {
+function Hoy() {
   const [date, setDate] = useState(() => todayKey());
   return <TodayView date={date} onDateChange={setDate} />;
 }
@@ -30,6 +31,7 @@ const rootRoute = createRootRoute({
         <Outlet />
       </AppShell>
       <Toaster
+        theme="dark"
         position="top-center"
         toastOptions={{
           className: "font-sans",
@@ -47,7 +49,12 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Home,
+  component: YpbView,
+});
+const hoyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/hoy",
+  component: Hoy,
 });
 const rutinaRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -67,6 +74,7 @@ const datosRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  hoyRoute,
   rutinaRoute,
   statsRoute,
   datosRoute,

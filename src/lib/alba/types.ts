@@ -69,5 +69,5 @@ export type AlbaBackup = {
 export const DEFAULT_SETTINGS: Settings = {
   notificationsEnabled: false,
   minutesBefore: 5,
-  theme: "light",
+  theme: "dark",
 };

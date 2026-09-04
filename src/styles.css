@@ -1,74 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
 
-  --color-background: #f3efe8;
-  --color-foreground: #1c1915;
-  --color-card: #faf7f2;
-  --color-card-foreground: #1c1915;
-  --color-popover: #faf7f2;
-  --color-popover-foreground: #1c1915;
-  --color-primary: #2f4a40;
-  --color-primary-foreground: #f7f3ec;
-  --color-secondary: #efe9df;
-  --color-secondary-foreground: #1c1915;
-  --color-muted: #efe9df;
-  --color-muted-foreground: #6b655c;
-  --color-accent: #e7e1d6;
-  --color-accent-foreground: #1c1915;
-  --color-destructive: #8f3d32;
-  --color-destructive-foreground: #f7f3ec;
-  --color-border: #e0d8cc;
-  --color-input: #e0d8cc;
-  --color-ring: #2f4a40;
-  --color-success: #3d6b52;
-  --color-success-foreground: #f7f3ec;
-  --color-heatmap-0: #e7e1d6;
-  --color-heatmap-1: #c5d1c9;
-  --color-heatmap-2: #8fa99a;
-  --color-heatmap-3: #5b7d6c;
-  --color-heatmap-4: #2f4a40;
-  --color-overlay: rgb(28 25 21 / 0.4);
-
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-2xl: 32px;
-  --radius: 12px;
-
-  --shadow-border:
-    0px 0px 0px 1px rgb(28 25 21 / 0.06),
-    0px 1px 2px -1px rgb(28 25 21 / 0.06),
-    0px 2px 4px 0px rgb(28 25 21 / 0.04);
-  --shadow-border-hover:
-    0px 0px 0px 1px rgb(28 25 21 / 0.08),
-    0px 1px 2px -1px rgb(28 25 21 / 0.08),
-    0px 2px 4px 0px rgb(28 25 21 / 0.06);
-}
-
-:root {
-  --background: #f3efe8;
-  --foreground: #1c1915;
-  --motion-stagger: 40ms;
-  --motion-micro: 80ms;
-  --motion-quick: 150ms;
-  --motion-fast: 250ms;
-  --motion-medium: 350ms;
-  --motion-slow: 400ms;
-  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  color-scheme: light;
-}
-
-html.dark {
-  color-scheme: dark;
   --color-background: #121410;
   --color-foreground: #ece8e1;
   --color-card: #1b1d19;
@@ -96,6 +32,15 @@ html.dark {
   --color-heatmap-3: #8fa99a;
   --color-heatmap-4: #c5d1c9;
   --color-overlay: rgb(0 0 0 / 0.62);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius: 12px;
+
   --shadow-border:
     0px 0px 0px 1px rgb(236 232 225 / 0.08),
     0px 1px 2px -1px rgb(0 0 0 / 0.35),
@@ -104,6 +49,20 @@ html.dark {
     0px 0px 0px 1px rgb(236 232 225 / 0.12),
     0px 1px 2px -1px rgb(0 0 0 / 0.4),
     0px 2px 4px 0px rgb(0 0 0 / 0.32);
+}
+
+:root {
+  --background: #121410;
+  --foreground: #ece8e1;
+  --motion-stagger: 40ms;
+  --motion-micro: 80ms;
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-medium: 350ms;
+  --motion-slow: 400ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  color-scheme: dark;
 }
 
 @layer base {

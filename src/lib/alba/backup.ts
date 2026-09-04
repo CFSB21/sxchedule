@@ -78,7 +78,7 @@ export function parseBackup(input: unknown): AlbaBackup {
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,
-      theme: parsed.settings?.theme ?? DEFAULT_SETTINGS.theme,
+      theme: "dark",
     },
   };
 }

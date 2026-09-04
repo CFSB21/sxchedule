@@ -209,7 +209,7 @@ export const useRoutineStore = create<State>()(
           exportedAt: new Date().toISOString(),
           habits: s.habits,
           completions: s.completions,
-          settings: s.settings,
+          settings: { ...s.settings, theme: "dark" },
         };
       },
 
@@ -264,7 +264,7 @@ export const useRoutineStore = create<State>()(
             remind: h.remind !== false,
           })),
           completions: p.completions ?? current.completions,
-          settings: { ...DEFAULT_SETTINGS, ...p.settings },
+          settings: { ...DEFAULT_SETTINGS, ...p.settings, theme: "dark" },
           initialized: true,
         };
       },

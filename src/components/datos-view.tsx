@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Download, Moon, Smartphone, Upload } from "lucide-react";
+import { Bell, Download, Smartphone, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadBackup, readBackupFile } from "@/lib/alba/backup";
 import {
@@ -9,15 +9,14 @@ import {
   showLocalNotice,
   upcomingReminders,
 } from "@/lib/alba/notifications";
-import { applyTheme } from "@/lib/alba/theme";
 import { useRoutineStore } from "@/lib/alba/store";
 import { pad2, todayKey } from "@/lib/alba/time";
 import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const LEAD_OPTIONS = [0, 5, 10, 15, 30];
-const GITHUB_REPO = "https://github.com/CFSB21/alba-rutina";
-const APK_URL = "https://github.com/CFSB21/alba-rutina/releases/latest";
+const GITHUB_REPO = "https://github.com/CFSB21/sxchedule";
+const APK_URL = "https://github.com/CFSB21/sxchedule/releases/latest";
 
 export function DatosView() {
   const habits = useRoutineStore((s) => s.habits);
@@ -30,7 +29,6 @@ export function DatosView() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"replace" | "merge">("replace");
   const upcoming = upcomingReminders(habits, completions, settings).slice(0, 6);
-  const dark = settings.theme === "dark";
 
   async function exportNow() {
     try {
@@ -53,7 +51,6 @@ export function DatosView() {
       const backup = await readBackupFile(file);
       if (mode === "replace") replaceFromBackup(backup);
       else mergeFromBackup(backup);
-      applyTheme(backup.settings.theme);
       toast.success(
         mode === "replace"
           ? "Datos reemplazados"
@@ -92,52 +89,14 @@ export function DatosView() {
     await showLocalNotice(APP_NAME, "Aviso de prueba");
   }
 
-  function toggleTheme() {
-    const next = dark ? "light" : "dark";
-    applyTheme(next);
-    updateSettings({ theme: next });
-  }
-
   return (
     <div className="mx-auto w-full max-w-2xl">
       <div className="alba-enter">
         <h1 className="font-display text-3xl tracking-tight">Datos</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Apariencia, respaldos y avisos a la hora de cada hábito.
+          Guardado automático, respaldos y avisos a la hora de cada hábito.
         </p>
       </div>
-
-      <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-medium">Apariencia</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Elige el modo claro u oscuro. Se guarda en este dispositivo.
-            </p>
-          </div>
-          <Moon className="size-5 text-primary" />
-        </div>
-        <label className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-secondary px-3 py-3">
-          <span className="text-sm">Modo oscuro</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={dark}
-            onClick={toggleTheme}
-            className={cn(
-              "relative h-7 w-12 rounded-full transition-colors",
-              dark ? "bg-primary" : "bg-border",
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 left-0.5 size-6 rounded-full bg-card transition-transform",
-                dark && "translate-x-5",
-              )}
-            />
-          </button>
-        </label>
-      </section>
 
       <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
         <h2 className="font-medium">Guardado</h2>
