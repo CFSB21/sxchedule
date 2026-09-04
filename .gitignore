@@ -1,0 +1,12 @@
+node_modules
+.vercel
+android
+android-www
+dist-apk
+screenshots
+artifacts
+*.log
+.DS_Store
+.grok/og-pending
+.env
+.env.*

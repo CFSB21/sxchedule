@@ -1,0 +1,45 @@
+name: APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm run build:android
+      - run: npx cap add android
+      - run: npx cap sync android
+      - name: Assemble debug APK
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Rename APK
+        run: |
+          mkdir -p dist-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist-apk/Alba.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Alba
+          path: dist-apk/Alba.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: Alba ${{ github.run_number }}
+          files: dist-apk/Alba.apk
+          generate_release_notes: true
