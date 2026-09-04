@@ -1,11 +1,10 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Download, Upload } from "lucide-react";
+import { Bell, Download, Smartphone, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadBackup, readBackupFile } from "@/lib/alba/backup";
 import {
   isNativeApp,
-  reminderBody,
   requestNotificationPermission,
   showLocalNotice,
   upcomingReminders,
@@ -15,6 +14,8 @@ import { pad2, todayKey } from "@/lib/alba/time";
 import { cn } from "@/lib/utils";
 
 const LEAD_OPTIONS = [0, 5, 10, 15, 30];
+const GITHUB_REPO = "https://github.com/CFSB21/alba-rutina";
+const APK_URL = "https://github.com/CFSB21/alba-rutina/releases/latest";
 
 export function DatosView() {
   const habits = useRoutineStore((s) => s.habits);
@@ -28,9 +29,19 @@ export function DatosView() {
   const [mode, setMode] = useState<"replace" | "merge">("replace");
   const upcoming = upcomingReminders(habits, completions, settings).slice(0, 6);
 
-  function exportNow() {
-    downloadBackup(exportBackup(), `alba-${todayKey()}.json`);
-    toast.success("Respaldo descargado");
+  async function exportNow() {
+    try {
+      await downloadBackup(exportBackup(), `alba-${todayKey()}.json`);
+      toast.success(
+        isNativeApp()
+          ? "Elige dónde guardar el respaldo"
+          : "Respaldo descargado",
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/cancel/i.test(msg)) return;
+      toast.error("No se pudo exportar");
+    }
   }
 
   async function onFile(file: File | undefined) {
@@ -96,7 +107,7 @@ export function DatosView() {
           {habits.length} hábitos · {completions.length} registros
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <Button onClick={exportNow}>
+          <Button onClick={() => void exportNow()}>
             <Download className="size-4" />
             Exportar respaldo
           </Button>
@@ -154,7 +165,7 @@ export function DatosView() {
             <p className="mt-1 text-sm text-muted-foreground">
               {isNativeApp()
                 ? "En el APK se programan alarmas del sistema, aunque cierres la app."
-                : "En la web suenan si la app está abierta o instalada. El APK de Android usa alarmas nativas."}
+                : "En la web suenan si la app está abierta. El APK de Android usa alarmas nativas."}
             </p>
           </div>
           <Bell className="size-5 text-primary" />
@@ -233,6 +244,37 @@ export function DatosView() {
             </ul>
           )}
         </div>
+      </section>
+
+      <section className="alba-enter alba-enter-3 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-medium">Android</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              El código está en GitHub. Cada publicación genera un APK listo
+              para instalar en el teléfono.
+            </p>
+          </div>
+          <Smartphone className="size-5 text-primary" />
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button asChild>
+            <a href={APK_URL} target="_blank" rel="noreferrer">
+              <Download className="size-4" />
+              Descargar APK
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={GITHUB_REPO} target="_blank" rel="noreferrer">
+              Ver en GitHub
+            </a>
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Permite apps de origen desconocido al instalar. Si Android pide
+          permiso de alarmas, acéptalo para que los avisos suenen con la app
+          cerrada.
+        </p>
       </section>
     </div>
   );

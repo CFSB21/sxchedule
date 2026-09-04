@@ -2,19 +2,26 @@
 
 Rutina diaria con estadísticas, respaldos y avisos. Empaquetada para Android.
 
-## En el teléfono
+## Instalar en el teléfono
 
-1. En GitHub abre **Actions**, espera a que termine **APK Android**.
-2. Entra en **Releases** y descarga `Alba.apk`.
+1. Abre la [última versión](https://github.com/CFSB21/alba-rutina/releases/latest).
+2. Descarga `Alba.apk`.
 3. En Android permite instalar apps de origen desconocido y ábrela.
+4. En **Datos → Activar avisos** concede notificaciones (y alarmas, si el sistema las pide).
 
 Los avisos del APK usan alarmas del sistema: suenan aunque cierres la app.
 
 ## Datos
 
 - Se guardan solos en el dispositivo.
-- **Datos → Exportar respaldo** descarga un JSON.
+- **Datos → Exportar respaldo** descarga (o comparte) un JSON.
 - **Importar** puede reemplazar o fusionar.
+
+## Código
+
+Repositorio: https://github.com/CFSB21/alba-rutina
+
+Cada envío a `main` vuelve a construir el APK.
 
 ## Desarrollo
 

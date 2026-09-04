@@ -1,3 +1,6 @@
+import { Capacitor } from "@capacitor/core";
+import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import { z } from "zod";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
@@ -74,10 +77,29 @@ export function parseBackup(input: unknown): AlbaBackup {
   };
 }
 
-export function downloadBackup(backup: AlbaBackup, filename: string) {
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
-    type: "application/json",
-  });
+export async function downloadBackup(backup: AlbaBackup, filename: string) {
+  const text = JSON.stringify(backup, null, 2);
+
+  if (Capacitor.isNativePlatform()) {
+    await Filesystem.writeFile({
+      path: filename,
+      data: text,
+      directory: Directory.Cache,
+      encoding: Encoding.UTF8,
+    });
+    const { uri } = await Filesystem.getUri({
+      path: filename,
+      directory: Directory.Cache,
+    });
+    await Share.share({
+      title: "Respaldo Alba",
+      url: uri,
+      dialogTitle: "Exportar respaldo",
+    });
+    return;
+  }
+
+  const blob = new Blob([text], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
