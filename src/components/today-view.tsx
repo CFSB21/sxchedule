@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil, Play, X } from "lucide-react";
+import { Check, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DayOverrideDialog } from "@/components/day-override-dialog";
 import { DayPartDialog } from "@/components/day-part-dialog";
+import { DayProgress } from "@/components/day-progress";
+import { HabitFormDialog, type HabitDraft } from "@/components/habit-form";
+import { HabitsPanel } from "@/components/habits-panel";
 import { OutcomeDialog } from "@/components/outcome-dialog";
-import { ProgressRing } from "@/components/progress-ring";
+import { TodoPanel } from "@/components/todo-panel";
 import { WeekStrip } from "@/components/week-strip";
 import { formatPartRange, resolvePartId } from "@/lib/alba/day-parts";
 import {
@@ -13,17 +24,21 @@ import {
   habitWindow,
 } from "@/lib/alba/habit-timer";
 import { HABIT_ICONS } from "@/lib/alba/icons";
+import { useLongPress } from "@/lib/alba/long-press";
+import {
+  dueWithOverrides,
+  hasDayOverride,
+  overrideFor,
+} from "@/lib/alba/overrides";
 import {
   completionFor,
   dayMinutes,
-  habitsForDate,
   isComplete,
 } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 import {
   DAY_PART_ORDER,
   formatLongDate,
-  formatMinutes,
   fromDateKey,
   todayKey,
 } from "@/lib/alba/time";
@@ -51,19 +66,24 @@ export function TodayView({
   const habits = useRoutineStore((s) => s.habits);
   const completions = useRoutineStore((s) => s.completions);
   const settings = useRoutineStore((s) => s.settings);
+  const dayOverrides = useRoutineStore((s) => s.dayOverrides);
+  const passiveHabits = useRoutineStore((s) => s.passiveHabits);
+  const passiveChecks = useRoutineStore((s) => s.passiveChecks);
+  const todos = useRoutineStore((s) => s.todos);
   const toggleComplete = useRoutineStore((s) => s.toggleComplete);
   const recordOutcome = useRoutineStore((s) => s.recordOutcome);
   const startSession = useRoutineStore((s) => s.startSession);
   const updateDayPart = useRoutineStore((s) => s.updateDayPart);
+  const updateHabit = useRoutineStore((s) => s.updateHabit);
+  const deleteHabit = useRoutineStore((s) => s.deleteHabit);
   const session = useRoutineStore((s) => s.session);
 
   const day = fromDateKey(date);
   const today = now ? todayKey(now) : date;
   const isToday = Boolean(now) && date === today;
-  const due = habitsForDate(habits, day);
+  const due = dueWithOverrides(habits, day, date, dayOverrides);
   const done = due.filter((h) => isComplete(completions, h.id, date));
   const minutes = dayMinutes(completions, date);
-  const rate = due.length === 0 ? 0 : done.length / due.length;
   const parts = settings.dayParts;
   const grouped = DAY_PART_ORDER.map((part) => ({
     part,
@@ -71,7 +91,19 @@ export function TodayView({
     items: due.filter((h) => resolvePartId(h, parts) === part),
   }));
 
+  const dow = day.getDay();
+  const customsDue = passiveHabits.filter((h) => h.days.includes(dow));
+  const customsDone = customsDue.filter((h) =>
+    passiveChecks.some((c) => c.habitId === h.id && c.date === date),
+  );
+  const dayTodos = todos.filter((t) => t.date === date);
+  const todosDone = dayTodos.filter((t) => t.done);
+
   const [editingPart, setEditingPart] = useState<DayPartConfig | null>(null);
+  const [panel, setPanel] = useState<"habits" | "todos" | null>(null);
+  const [menuHabit, setMenuHabit] = useState<Habit | null>(null);
+  const [overrideHabit, setOverrideHabit] = useState<Habit | null>(null);
+  const [routineHabit, setRoutineHabit] = useState<Habit | null>(null);
   const [outcome, setOutcome] = useState<{
     habit: Habit;
     excuseOnly: boolean;
@@ -93,6 +125,8 @@ export function TodayView({
     }
   }, [now, isToday, due, completions, date, session]);
 
+  const sourceHabit = (id: string) => habits.find((h) => h.id === id) ?? null;
+
   return (
     <div className="mx-auto w-full max-w-lg">
       <div className="alba-enter">
@@ -107,51 +141,31 @@ export function TodayView({
         </p>
       </div>
 
-      <section className="alba-enter alba-enter-1 mt-6 flex items-center gap-5 rounded-xl bg-card p-5 shadow-(--shadow-border)">
-        <ProgressRing value={rate} size={104} stroke={8}>
-          <p className="font-display text-2xl tabular-nums leading-none">
-            {Math.round(rate * 100)}
-            <span className="text-sm text-muted-foreground">%</span>
-          </p>
-        </ProgressRing>
-        <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">Progreso del día</p>
-          <p className="mt-1 font-medium tabular-nums">
-            {done.length} de {due.length} hábitos
-          </p>
-          <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
-            {formatMinutes(minutes)} dedicados
-          </p>
-        </div>
-      </section>
+      <DayProgress
+        routineDone={done.length}
+        routineTotal={due.length}
+        customDone={customsDone.length}
+        customTotal={customsDue.length}
+        todoDone={todosDone.length}
+        todoTotal={dayTodos.length}
+        minutes={minutes}
+        onOpenHabits={() => setPanel("habits")}
+        onOpenTodos={() => setPanel("todos")}
+      />
 
       <div className="alba-enter alba-enter-2 mt-8 space-y-6">
         {grouped.map((group) => {
           const config = group.config;
           if (!config) return null;
           return (
-            <section key={group.part}>
-              <div className="mb-3 flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {config.name}
-                  </h2>
-                  <p className="text-xs tabular-nums text-muted-foreground">
-                    {formatPartRange(config)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Editar ${config.name}`}
-                  onClick={() => setEditingPart(config)}
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
-              </div>
+            <DayPartSection
+              key={group.part}
+              config={config}
+              onEdit={() => setEditingPart(config)}
+            >
               {group.items.length === 0 ? (
                 <p className="rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground shadow-(--shadow-border)">
-                  Sin hábitos en este tramo.
+                  Sin actividades en este tramo.
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -168,12 +182,14 @@ export function TodayView({
                       now,
                       isToday,
                     );
+                    const over = overrideFor(dayOverrides, habit.id, date);
                     return (
                       <HabitRow
                         key={habit.id}
                         habit={habit}
                         date={date}
                         phase={phase}
+                        overridden={hasDayOverride(over)}
                         completionExcuse={completion?.excuse}
                         isToday={isToday}
                         now={now}
@@ -182,20 +198,32 @@ export function TodayView({
                         onPlay={() => startSession(habit.id)}
                         onDone={() => {
                           recordOutcome(habit.id, date, "done");
-                          toast.success("Hábito completado");
+                          toast.success("Completada");
                         }}
                         onAskFail={() =>
                           setOutcome({ habit, excuseOnly: true })
                         }
+                        onEdit={() => setMenuHabit(sourceHabit(habit.id) ?? habit)}
                       />
                     );
                   })}
                 </ul>
               )}
-            </section>
+            </DayPartSection>
           );
         })}
       </div>
+
+      <HabitsPanel
+        open={panel === "habits"}
+        date={date}
+        onClose={() => setPanel(null)}
+      />
+      <TodoPanel
+        open={panel === "todos"}
+        date={date}
+        onClose={() => setPanel(null)}
+      />
 
       <DayPartDialog
         open={Boolean(editingPart)}
@@ -210,6 +238,70 @@ export function TodayView({
         }}
       />
 
+      <Dialog
+        open={Boolean(menuHabit)}
+        onOpenChange={(open) => {
+          if (!open) setMenuHabit(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{menuHabit?.name}</DialogTitle>
+            <DialogDescription>
+              ¿Cambiar solo el {formatLongDate(day)} o la rutina entera?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Button
+              onClick={() => {
+                if (!menuHabit) return;
+                setOverrideHabit(menuHabit);
+                setMenuHabit(null);
+              }}
+            >
+              Solo este día
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!menuHabit) return;
+                setRoutineHabit(menuHabit);
+                setMenuHabit(null);
+              }}
+            >
+              Editar la rutina
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <DayOverrideDialog
+        open={Boolean(overrideHabit)}
+        habit={overrideHabit}
+        date={date}
+        onOpenChange={(open) => {
+          if (!open) setOverrideHabit(null);
+        }}
+      />
+
+      <HabitFormDialog
+        open={Boolean(routineHabit)}
+        habit={routineHabit}
+        onOpenChange={(open) => {
+          if (!open) setRoutineHabit(null);
+        }}
+        onSave={(draft: HabitDraft) => {
+          if (!routineHabit) return;
+          updateHabit(routineHabit.id, draft);
+          toast.success("Rutina actualizada");
+        }}
+        onDelete={() => {
+          if (!routineHabit) return;
+          deleteHabit(routineHabit.id);
+          toast.success("Actividad eliminada");
+        }}
+      />
+
       <OutcomeDialog
         open={Boolean(outcome)}
         habitName={outcome?.habit.name ?? ""}
@@ -220,7 +312,7 @@ export function TodayView({
         onDone={() => {
           if (!outcome) return;
           recordOutcome(outcome.habit.id, date, "done");
-          toast.success("Hábito completado");
+          toast.success("Completada");
         }}
         onFail={(excuse) => {
           if (!outcome) return;
@@ -232,10 +324,40 @@ export function TodayView({
   );
 }
 
+function DayPartSection({
+  config,
+  onEdit,
+  children,
+}: {
+  config: DayPartConfig;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  const lp = useLongPress(onEdit);
+  return (
+    <section>
+      <div
+        {...lp}
+        title="Mantén pulsado para editar"
+        className="mb-3 select-none"
+      >
+        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {config.name}
+        </h2>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {formatPartRange(config)}
+        </p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function HabitRow({
   habit,
   date,
   phase,
+  overridden,
   completionExcuse,
   isToday,
   now,
@@ -244,10 +366,12 @@ function HabitRow({
   onPlay,
   onDone,
   onAskFail,
+  onEdit,
 }: {
   habit: Habit;
   date: string;
   phase: ReturnType<typeof habitPhase>;
+  overridden: boolean;
   completionExcuse?: string;
   isToday: boolean;
   now: Date | null;
@@ -256,6 +380,7 @@ function HabitRow({
   onPlay: () => void;
   onDone: () => void;
   onAskFail: () => void;
+  onEdit: () => void;
 }) {
   const Icon = HABIT_ICONS[habit.icon];
   const win = habitWindow(habit, date);
@@ -282,11 +407,13 @@ function HabitRow({
     !awaiting &&
     !sessionActive &&
     (phase === "idle" || phase === "upcoming");
+  const lp = useLongPress(onEdit);
 
   return (
     <li
+      {...lp}
       className={cn(
-        "rounded-lg bg-card p-2 shadow-(--shadow-border) transition-opacity duration-(--motion-quick)",
+        "select-none rounded-lg bg-card p-2 shadow-(--shadow-border) transition-opacity duration-(--motion-quick)",
         (done || failed) && "opacity-70",
       )}
     >
@@ -333,7 +460,7 @@ function HabitRow({
               ? completionExcuse
                 ? `Fallida · ${completionExcuse}`
                 : "Fallida"
-              : `${habit.scheduledTime ? `${habit.scheduledTime} · ` : ""}${habit.durationMin} min`}
+              : `${habit.scheduledTime ? `${habit.scheduledTime} · ` : ""}${habit.durationMin} min${overridden ? " · hoy" : ""}`}
           </p>
         </div>
         {clock ? (

@@ -69,6 +69,38 @@ export type Settings = {
   dayParts: DayPartConfig[];
 };
 
+export type PassiveHabit = {
+  id: string;
+  name: string;
+  icon: HabitIconId;
+  days: number[];
+  order: number;
+};
+
+export type PassiveCheck = {
+  id: string;
+  habitId: string;
+  date: string;
+};
+
+export type TodoItem = {
+  id: string;
+  date: string;
+  title: string;
+  done: boolean;
+  order: number;
+};
+
+export type DayOverride = {
+  id: string;
+  habitId: string;
+  date: string;
+  name?: string;
+  scheduledTime?: string | null;
+  durationMin?: number;
+  skipped?: boolean;
+};
+
 export type AlbaBackup = {
   version: 1;
   app: "alba" | "sxchedule";
@@ -76,6 +108,10 @@ export type AlbaBackup = {
   habits: Habit[];
   completions: Completion[];
   settings: Settings;
+  passiveHabits?: PassiveHabit[];
+  passiveChecks?: PassiveCheck[];
+  todos?: TodoItem[];
+  dayOverrides?: DayOverride[];
 };
 
 export const DEFAULT_DAY_PARTS: DayPartConfig[] = [

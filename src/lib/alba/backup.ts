@@ -4,6 +4,7 @@ import { Share } from "@capacitor/share";
 import { z } from "zod";
 import { APP_NAME } from "@/lib/brand";
 import { normalizeDayParts } from "./day-parts";
+import { defaultPassiveHabits } from "./seed";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -59,12 +60,50 @@ const dayPartSchema = z.object({
   endMin: z.number().int().min(0).max(24 * 60),
 });
 
+const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const passiveHabitSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(80),
+  icon: z.enum(ICON_IDS),
+  days: z.array(z.number().int().min(0).max(6)).min(1),
+  order: z.number().int(),
+});
+
+const passiveCheckSchema = z.object({
+  id: z.string().min(1),
+  habitId: z.string().min(1),
+  date: dateKey,
+});
+
+const todoSchema = z.object({
+  id: z.string().min(1),
+  date: dateKey,
+  title: z.string().min(1).max(120),
+  done: z.boolean(),
+  order: z.number().int(),
+});
+
+const overrideSchema = z.object({
+  id: z.string().min(1),
+  habitId: z.string().min(1),
+  date: dateKey,
+  name: z.string().min(1).max(80).optional(),
+  scheduledTime: z.string().nullable().optional(),
+  durationMin: z.number().int().min(1).max(24 * 60).optional(),
+  skipped: z.boolean().optional(),
+});
+
 const backupSchema = z.object({
   version: z.literal(1),
   app: z.enum(["alba", "sxchedule"]),
   exportedAt: z.string(),
   habits: z.array(habitSchema),
   completions: z.array(completionSchema),
+  passiveHabits: z.array(passiveHabitSchema).optional(),
+  passiveChecks: z.array(passiveCheckSchema).optional(),
+  todos: z.array(todoSchema).optional(),
+  dayOverrides: z.array(overrideSchema).optional(),
   settings: z
     .object({
       notificationsEnabled: z.boolean(),
@@ -90,6 +129,10 @@ export function parseBackup(input: unknown): AlbaBackup {
       status: c.status === "failed" ? "failed" : "done",
       excuse: c.status === "failed" ? c.excuse : undefined,
     })),
+    passiveHabits: parsed.passiveHabits ?? defaultPassiveHabits(),
+    passiveChecks: parsed.passiveChecks ?? [],
+    todos: parsed.todos ?? [],
+    dayOverrides: parsed.dayOverrides ?? [],
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,

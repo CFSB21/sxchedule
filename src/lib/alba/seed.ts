@@ -1,4 +1,11 @@
-import type { Completion, Habit } from "./types";
+import type {
+  Completion,
+  DayOverride,
+  Habit,
+  PassiveCheck,
+  PassiveHabit,
+  TodoItem,
+} from "./types";
 import { toDateKey } from "./time";
 
 function hash01(input: string) {
@@ -106,6 +113,46 @@ export function defaultHabits(): Habit[] {
   ];
 }
 
+export function defaultPassiveHabits(): PassiveHabit[] {
+  return [
+    {
+      id: "p-bed",
+      name: "Hacer la cama",
+      icon: "sun",
+      days: ALL_DAYS,
+      order: 0,
+    },
+    {
+      id: "p-vitamins",
+      name: "Vitaminas",
+      icon: "leaf",
+      days: ALL_DAYS,
+      order: 1,
+    },
+    {
+      id: "p-phone",
+      name: "Sin teléfono al despertar",
+      icon: "moon",
+      days: ALL_DAYS,
+      order: 2,
+    },
+    {
+      id: "p-water",
+      name: "Dos litros de agua",
+      icon: "droplets",
+      days: ALL_DAYS,
+      order: 3,
+    },
+    {
+      id: "p-desk",
+      name: "Escritorio en orden",
+      icon: "laptop",
+      days: WEEKDAYS,
+      order: 4,
+    },
+  ];
+}
+
 function missChance(habitId: string, dow: number) {
   const weekend = dow === 0 || dow === 6;
   const base: Record<string, number> = {
@@ -123,7 +170,11 @@ function missChance(habitId: string, dow: number) {
 
 export function createSeed(now = new Date()) {
   const habits = defaultHabits();
+  const passiveHabits = defaultPassiveHabits();
   const completions: Completion[] = [];
+  const passiveChecks: PassiveCheck[] = [];
+  const todos: TodoItem[] = [];
+  const dayOverrides: DayOverride[] = [];
   const today = toDateKey(now);
 
   for (let i = 56; i >= 1; i--) {
@@ -147,6 +198,30 @@ export function createSeed(now = new Date()) {
         status: "done",
       });
     }
+    for (const custom of passiveHabits) {
+      if (!custom.days.includes(dow)) continue;
+      const roll = hash01(`p:${key}:${custom.id}`);
+      if (forceComplete || roll > 0.22) {
+        passiveChecks.push({
+          id: `pc-${key}-${custom.id}`,
+          habitId: custom.id,
+          date: key,
+        });
+      }
+    }
+    if (dow !== 0) {
+      const n = 2 + Math.floor(hash01(`t:${key}`) * 3);
+      for (let t = 0; t < n; t++) {
+        const done = forceComplete || hash01(`t:${key}:${t}`) > 0.35;
+        todos.push({
+          id: `td-${key}-${t}`,
+          date: key,
+          title: TODO_TITLES[(t + i) % TODO_TITLES.length]!,
+          done,
+          order: t,
+        });
+      }
+    }
   }
 
   const morningToday = habits.filter(
@@ -166,5 +241,53 @@ export function createSeed(now = new Date()) {
     });
   }
 
-  return { habits, completions };
+  for (const custom of passiveHabits.slice(0, 2)) {
+    if (!custom.days.includes(now.getDay())) continue;
+    passiveChecks.push({
+      id: `pc-${today}-${custom.id}`,
+      habitId: custom.id,
+      date: today,
+    });
+  }
+
+  todos.push(
+    {
+      id: `td-${today}-0`,
+      date: today,
+      title: "Enviar el informe de la semana",
+      done: true,
+      order: 0,
+    },
+    {
+      id: `td-${today}-1`,
+      date: today,
+      title: "Comprar verdura",
+      done: false,
+      order: 1,
+    },
+    {
+      id: `td-${today}-2`,
+      date: today,
+      title: "Llamar al banco",
+      done: false,
+      order: 2,
+    },
+  );
+
+  return {
+    habits,
+    completions,
+    passiveHabits,
+    passiveChecks,
+    todos,
+    dayOverrides,
+  };
 }
+
+const TODO_TITLES = [
+  "Revisar correo",
+  "Pagar un recibo",
+  "Devolver una llamada",
+  "Organizar la mesa",
+  "Preparar la comida",
+];
