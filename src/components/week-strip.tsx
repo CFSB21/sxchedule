@@ -23,7 +23,6 @@ export function WeekStrip({
 }) {
   const keys = weekKeysMonday(date);
   const weekStart = keys[0]!;
-  const canNext = live && shiftDateKey(weekStart, 7) <= today;
 
   return (
     <div className="flex items-center gap-1">
@@ -48,11 +47,10 @@ export function WeekStrip({
             <button
               key={key}
               type="button"
-              disabled={isFuture}
               onClick={() => onDateChange(key)}
               aria-current={isToday ? "date" : undefined}
               aria-pressed={isSelected}
-              aria-label={`${DAY_NAMES[jsDay]} ${dayNum}${isToday ? ", hoy" : isPast ? ", pasado" : ""}`}
+              aria-label={`${DAY_NAMES[jsDay]} ${dayNum}${isToday ? ", hoy" : isPast ? ", pasado" : isFuture ? ", siguiente" : ""}`}
               className={cn(
                 "flex h-14 flex-col items-center justify-center rounded-lg text-xs transition-colors duration-(--motion-quick)",
                 isToday && "bg-primary text-primary-foreground",
@@ -63,7 +61,10 @@ export function WeekStrip({
                   !isSelected &&
                   !isFuture &&
                   "text-foreground hover:bg-accent",
-                isFuture && "text-muted-foreground/50",
+                !isToday &&
+                  !isSelected &&
+                  isFuture &&
+                  "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               <span
@@ -71,6 +72,7 @@ export function WeekStrip({
                   "font-medium tracking-wide",
                   !isToday && "text-muted-foreground",
                   isToday && "text-primary-foreground/80",
+                  isSelected && !isToday && "text-foreground",
                 )}
               >
                 {label}
@@ -92,7 +94,6 @@ export function WeekStrip({
         variant="ghost"
         size="icon"
         aria-label="Semana siguiente"
-        disabled={!canNext}
         onClick={() => onDateChange(shiftDateKey(weekStart, 7))}
       >
         <ChevronRight className="size-5" />

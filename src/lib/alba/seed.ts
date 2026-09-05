@@ -1,7 +1,9 @@
 import { activityToHabit, stampApplied } from "./schedule";
+import { defaultDayPartSchedules } from "./day-parts";
 import type {
   Completion,
   DayOverride,
+  DayPartSchedule,
   Habit,
   PassiveCheck,
   PassiveHabit,
@@ -167,6 +169,7 @@ export function createSeed(now = new Date()) {
   const passiveChecks: PassiveCheck[] = [];
   const todos: TodoItem[] = [];
   const dayOverrides: DayOverride[] = [];
+  const dayPartSchedules: DayPartSchedule[] = defaultDayPartSchedules();
   const today = toDateKey(now);
 
   for (let i = 56; i >= 1; i--) {
@@ -275,6 +278,7 @@ export function createSeed(now = new Date()) {
     todos,
     dayOverrides,
     templates,
+    dayPartSchedules,
   };
 }
 

@@ -9,7 +9,7 @@ import { HabitsPanel } from "@/components/habits-panel";
 import { OutcomeDialog } from "@/components/outcome-dialog";
 import { TodoPanel } from "@/components/todo-panel";
 import { WeekStrip } from "@/components/week-strip";
-import { formatPartRange, resolvePartId } from "@/lib/alba/day-parts";
+import { formatPartRange, partsForDate, resolvePartId } from "@/lib/alba/day-parts";
 import {
   formatCountdown,
   habitPhase,
@@ -59,6 +59,7 @@ export function TodayView({
   const habits = useRoutineStore((s) => s.habits);
   const completions = useRoutineStore((s) => s.completions);
   const settings = useRoutineStore((s) => s.settings);
+  const dayPartSchedules = useRoutineStore((s) => s.dayPartSchedules);
   const dayOverrides = useRoutineStore((s) => s.dayOverrides);
   const passiveHabits = useRoutineStore((s) => s.passiveHabits);
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
@@ -77,7 +78,7 @@ export function TodayView({
     isCompleteLineage(completions, habits, h, date),
   );
   const minutes = dayMinutes(completions, date);
-  const parts = settings.dayParts;
+  const parts = partsForDate(dayPartSchedules, date, settings.dayParts);
   const grouped = DAY_PART_ORDER.map((part) => ({
     part,
     config: parts.find((p) => p.id === part) ?? null,
@@ -231,7 +232,7 @@ export function TodayView({
         }}
         onSave={(patch) => {
           if (!editingPart) return;
-          updateDayPart(editingPart.id as DayPart, patch);
+          updateDayPart(editingPart.id as DayPart, patch, date);
           toast.success("Momento actualizado");
         }}
       />

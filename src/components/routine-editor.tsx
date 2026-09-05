@@ -31,7 +31,6 @@ export function RoutineEditor() {
   );
   const moveTemplateActivity = useRoutineStore((s) => s.moveTemplateActivity);
   const applyTemplate = useRoutineStore((s) => s.applyTemplate);
-  const restoreDemo = useRoutineStore((s) => s.restoreDemo);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = templates.find((t) => t.id === selectedId) ?? null;
@@ -93,31 +92,9 @@ export function RoutineEditor() {
       </div>
 
       {templates.length === 0 ? (
-        <div className="alba-enter alba-enter-1 mt-8 rounded-xl bg-card px-6 py-12 text-center shadow-(--shadow-border)">
-          <p className="font-display text-2xl">Crea tu primera plantilla</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            Una para entre semana, otra para el fin. O restaura el ejemplo.
-          </p>
-          <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
-            <Button
-              onClick={() => {
-                const id = addTemplate("Mi rutina");
-                setSelectedId(id);
-              }}
-            >
-              Nueva plantilla
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                restoreDemo();
-                toast.success("Rutina de ejemplo restaurada");
-              }}
-            >
-              Restaurar ejemplo
-            </Button>
-          </div>
-        </div>
+        <p className="alba-enter alba-enter-1 mt-24 text-center font-display text-2xl tracking-tight text-muted-foreground/40">
+          No hay plantillas
+        </p>
       ) : (
         <ul className="alba-enter alba-enter-1 mt-8 space-y-3">
           {templates.map((template) => {

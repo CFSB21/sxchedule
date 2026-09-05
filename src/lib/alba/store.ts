@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { createSeed, defaultPassiveHabits, defaultTemplates } from "./seed";
-import { normalizeDayParts } from "./day-parts";
+import {
+  defaultDayPartSchedules,
+  normalizeDayParts,
+  partsForDate,
+  schedulesFromParts,
+  setDayPartsAt,
+} from "./day-parts";
 import { overrideFor } from "./overrides";
 import {
   applyTemplateToHabits,
@@ -20,6 +26,7 @@ import type {
   DayOverride,
   DayPart,
   DayPartConfig,
+  DayPartSchedule,
   Habit,
   HabitIconId,
   PassiveCheck,
@@ -69,6 +76,7 @@ type State = {
   todos: TodoItem[];
   dayOverrides: DayOverride[];
   templates: RoutineTemplate[];
+  dayPartSchedules: DayPartSchedule[];
   settings: Settings;
   initialized: boolean;
   session: Session | null;
@@ -92,8 +100,13 @@ type State = {
   }) => void;
   cancelSession: () => void;
   restoreDemo: () => void;
+  clearAll: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
-  updateDayPart: (id: DayPart, patch: Partial<DayPartConfig>) => void;
+  updateDayPart: (
+    id: DayPart,
+    patch: Partial<DayPartConfig>,
+    date: string,
+  ) => void;
   addPassiveHabit: (draft: PassiveDraft, date: string) => void;
   updatePassiveHabit: (id: string, draft: PassiveDraft, date: string) => void;
   deletePassiveHabit: (id: string, date: string) => void;
@@ -163,6 +176,7 @@ export const useRoutineStore = create<State>()(
       todos: seed.todos,
       dayOverrides: seed.dayOverrides,
       templates: seed.templates,
+      dayPartSchedules: seed.dayPartSchedules,
       settings: DEFAULT_SETTINGS,
       initialized: true,
       session: null,
@@ -347,6 +361,21 @@ export const useRoutineStore = create<State>()(
         });
       },
 
+      clearAll: () =>
+        set({
+          habits: [],
+          completions: [],
+          passiveHabits: [],
+          passiveChecks: [],
+          todos: [],
+          dayOverrides: [],
+          templates: [],
+          dayPartSchedules: defaultDayPartSchedules(),
+          settings: DEFAULT_SETTINGS,
+          session: null,
+          initialized: true,
+        }),
+
       updateSettings: (patch) =>
         set((s) => ({
           settings: {
@@ -357,23 +386,40 @@ export const useRoutineStore = create<State>()(
           },
         })),
 
-      updateDayPart: (id, patch) =>
-        set((s) => ({
-          settings: {
-            ...s.settings,
-            dayParts: normalizeDayParts(
-              s.settings.dayParts.map((p) =>
-                p.id === id
-                  ? {
-                      ...p,
-                      ...patch,
-                      name: (patch.name ?? p.name).trim() || p.name,
-                    }
-                  : p,
-              ),
+      updateDayPart: (id, patch, date) =>
+        set((s) => {
+          const today = todayKey();
+          const current = partsForDate(
+            s.dayPartSchedules,
+            date,
+            s.settings.dayParts,
+          );
+          const parts = normalizeDayParts(
+            current.map((p) =>
+              p.id === id
+                ? {
+                    ...p,
+                    ...patch,
+                    name: (patch.name ?? p.name).trim() || p.name,
+                  }
+                : p,
             ),
-          },
-        })),
+          );
+          const schedules = setDayPartsAt(
+            s.dayPartSchedules,
+            date,
+            parts,
+            () => newId("dps"),
+            date < today ? "day" : "forward",
+          );
+          return {
+            dayPartSchedules: schedules,
+            settings: {
+              ...s.settings,
+              dayParts: partsForDate(schedules, today, parts),
+            },
+          };
+        }),
 
       addPassiveHabit: (draft, date) =>
         set((s) => {
@@ -689,10 +735,15 @@ export const useRoutineStore = create<State>()(
           todos: s.todos,
           dayOverrides: s.dayOverrides,
           templates: s.templates,
+          dayPartSchedules: s.dayPartSchedules,
           settings: {
             ...s.settings,
             theme: "dark",
-            dayParts: normalizeDayParts(s.settings.dayParts),
+            dayParts: partsForDate(
+              s.dayPartSchedules,
+              todayKey(),
+              s.settings.dayParts,
+            ),
           },
         };
       },
@@ -708,7 +759,11 @@ export const useRoutineStore = create<State>()(
           todos: backup.todos ?? [],
           dayOverrides: backup.dayOverrides ?? [],
           templates:
-            backup.templates ?? templatesFromHabits(backup.habits.map(normalizeHabit)),
+            backup.templates ??
+            templatesFromHabits(backup.habits.map(normalizeHabit)),
+          dayPartSchedules:
+            backup.dayPartSchedules ??
+            schedulesFromParts(backup.settings?.dayParts),
           settings: {
             ...DEFAULT_SETTINGS,
             ...backup.settings,
@@ -782,6 +837,7 @@ export const useRoutineStore = create<State>()(
         todos: s.todos,
         dayOverrides: s.dayOverrides,
         templates: s.templates,
+        dayPartSchedules: s.dayPartSchedules,
         settings: s.settings,
         initialized: s.initialized,
       }),
@@ -795,6 +851,7 @@ export const useRoutineStore = create<State>()(
               todos?: TodoItem[];
               dayOverrides?: DayOverride[];
               templates?: RoutineTemplate[];
+              dayPartSchedules?: DayPartSchedule[];
               settings?: Settings;
               initialized?: boolean;
             }
@@ -804,6 +861,14 @@ export const useRoutineStore = create<State>()(
         const templates =
           p.templates ??
           (habits.length ? templatesFromHabits(habits) : defaultTemplates());
+        const settings = {
+          ...DEFAULT_SETTINGS,
+          ...p.settings,
+          theme: "dark" as const,
+          dayParts: normalizeDayParts(p.settings?.dayParts),
+        };
+        const dayPartSchedules =
+          p.dayPartSchedules ?? schedulesFromParts(settings.dayParts);
         return {
           ...current,
           habits,
@@ -818,11 +883,10 @@ export const useRoutineStore = create<State>()(
           todos: p.todos ?? [],
           dayOverrides: p.dayOverrides ?? [],
           templates,
+          dayPartSchedules,
           settings: {
-            ...DEFAULT_SETTINGS,
-            ...p.settings,
-            theme: "dark",
-            dayParts: normalizeDayParts(p.settings?.dayParts),
+            ...settings,
+            dayParts: partsForDate(dayPartSchedules, todayKey(), settings.dayParts),
           },
           initialized: true,
         };

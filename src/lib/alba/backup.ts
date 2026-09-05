@@ -66,6 +66,13 @@ const dayPartSchema = z.object({
   endMin: z.number().int().min(0).max(24 * 60),
 });
 
+const dayPartScheduleSchema = z.object({
+  id: z.string().min(1),
+  parts: z.array(dayPartSchema),
+  activeFrom: dateKey,
+  activeUntil: dateKey.nullable(),
+});
+
 const passiveHabitSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
@@ -136,6 +143,7 @@ const backupSchema = z.object({
   todos: z.array(todoSchema).optional(),
   dayOverrides: z.array(overrideSchema).optional(),
   templates: z.array(templateSchema).optional(),
+  dayPartSchedules: z.array(dayPartScheduleSchema).optional(),
   settings: z
     .object({
       notificationsEnabled: z.boolean(),
@@ -166,6 +174,7 @@ export function parseBackup(input: unknown): AlbaBackup {
     todos: parsed.todos ?? [],
     dayOverrides: parsed.dayOverrides ?? [],
     templates: parsed.templates,
+    dayPartSchedules: parsed.dayPartSchedules,
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,

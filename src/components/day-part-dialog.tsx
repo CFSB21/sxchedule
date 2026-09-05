@@ -55,7 +55,8 @@ export function DayPartDialog({
         <DialogHeader>
           <DialogTitle>Momento del día</DialogTitle>
           <DialogDescription>
-            Cambia el nombre y el rango de horas. Ahora: {formatPartRange(part)}.
+            Cambia el nombre y el rango. Solo desde este día; el pasado no
+            cambia. Ahora: {formatPartRange(part)}.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Download, Smartphone, Upload } from "lucide-react";
+import { Bell, Download, Smartphone, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadBackup, readBackupFile } from "@/lib/alba/backup";
 import {
@@ -24,10 +24,10 @@ export function DatosView() {
   const settings = useRoutineStore((s) => s.settings);
   const exportBackup = useRoutineStore((s) => s.exportBackup);
   const replaceFromBackup = useRoutineStore((s) => s.replaceFromBackup);
-  const mergeFromBackup = useRoutineStore((s) => s.mergeFromBackup);
+  const clearAll = useRoutineStore((s) => s.clearAll);
   const updateSettings = useRoutineStore((s) => s.updateSettings);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<"replace" | "merge">("replace");
+  const [confirmWipe, setConfirmWipe] = useState(false);
   const upcoming = upcomingReminders(habits, completions, settings).slice(0, 6);
 
   async function exportNow() {
@@ -49,13 +49,8 @@ export function DatosView() {
     if (!file) return;
     try {
       const backup = await readBackupFile(file);
-      if (mode === "replace") replaceFromBackup(backup);
-      else mergeFromBackup(backup);
-      toast.success(
-        mode === "replace"
-          ? "Datos reemplazados"
-          : `Importados ${backup.habits.length} hábitos`,
-      );
+      replaceFromBackup(backup);
+      toast.success("Datos reemplazados");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo importar");
     }
@@ -127,36 +122,30 @@ export function DatosView() {
             }}
           />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={() => setMode("replace")}
-            className={cn(
-              "h-11 rounded-md text-sm font-medium",
-              mode === "replace"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground",
-            )}
-          >
-            Reemplazar
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("merge")}
-            className={cn(
-              "h-11 rounded-md text-sm font-medium",
-              mode === "merge"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground",
-            )}
-          >
-            Fusionar
-          </button>
-        </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Reemplazar borra lo actual. Fusionar añade hábitos e historial que aún
-          no existen.
+          Al importar se reemplaza todo lo actual.
         </p>
+        <Button
+          variant="destructive"
+          className="mt-4 w-full sm:w-auto"
+          onClick={() => {
+            if (!confirmWipe) {
+              setConfirmWipe(true);
+              return;
+            }
+            clearAll();
+            setConfirmWipe(false);
+            toast.success("Datos borrados");
+          }}
+        >
+          <Trash2 className="size-4" />
+          {confirmWipe ? "Confirmar borrado" : "Borrar todos los datos"}
+        </Button>
+        {confirmWipe ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Esto no se puede deshacer. Exporta un respaldo antes.
+          </p>
+        ) : null}
       </section>
 
       <section className="alba-enter alba-enter-2 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">

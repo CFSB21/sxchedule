@@ -1,8 +1,10 @@
-import { parseTimeToMinutes, pad2 } from "./time";
+import { isActiveOn } from "./schedule";
+import { parseTimeToMinutes, pad2, shiftDateKey } from "./time";
 import {
   DEFAULT_DAY_PARTS,
   type DayPart,
   type DayPartConfig,
+  type DayPartSchedule,
   type Habit,
 } from "./types";
 
@@ -64,4 +66,103 @@ export function partName(parts: DayPartConfig[], id: DayPart) {
 export function hmInputValue(totalMin: number) {
   const n = Math.min(DAY_MS - 1, Math.max(0, totalMin));
   return `${pad2(Math.floor(n / 60))}:${pad2(n % 60)}`;
+}
+
+export function defaultDayPartSchedules(): DayPartSchedule[] {
+  return schedulesFromParts(DEFAULT_DAY_PARTS);
+}
+
+export function schedulesFromParts(
+  parts: DayPartConfig[] | undefined,
+  id = "dps-default",
+): DayPartSchedule[] {
+  return [
+    {
+      id,
+      parts: normalizeDayParts(parts),
+      activeFrom: "0000-01-01",
+      activeUntil: null,
+    },
+  ];
+}
+
+export function partsForDate(
+  schedules: DayPartSchedule[] | undefined,
+  date: string,
+  fallback?: DayPartConfig[],
+) {
+  const hits = (schedules ?? [])
+    .filter((s) => isActiveOn(s, date))
+    .sort((a, b) => b.activeFrom.localeCompare(a.activeFrom));
+  return normalizeDayParts(hits[0]?.parts ?? fallback);
+}
+
+export function setDayPartsAt(
+  schedules: DayPartSchedule[],
+  date: string,
+  parts: DayPartConfig[],
+  nextId: () => string,
+  span: "forward" | "day",
+): DayPartSchedule[] {
+  const cloned = normalizeDayParts(parts);
+  const later = schedules
+    .filter((s) => s.activeFrom > date)
+    .sort((a, b) => a.activeFrom.localeCompare(b.activeFrom));
+  const until =
+    span === "day"
+      ? date
+      : later[0]
+        ? shiftDateKey(later[0].activeFrom, -1)
+        : null;
+
+  const next: DayPartSchedule[] = [];
+  let replaced = false;
+
+  for (const s of schedules) {
+    if (s.activeFrom > date) {
+      next.push(s);
+      continue;
+    }
+    const sUntil = s.activeUntil ?? null;
+    if (sUntil != null && sUntil < date) {
+      next.push(s);
+      continue;
+    }
+
+    if (s.activeFrom === date) {
+      next.push({ ...s, parts: cloned, activeUntil: until });
+      replaced = true;
+      const tailFrom = until ? shiftDateKey(until, 1) : null;
+      if (tailFrom && (sUntil == null || tailFrom <= sUntil)) {
+        next.push({
+          ...s,
+          id: nextId(),
+          activeFrom: tailFrom,
+          activeUntil: sUntil,
+        });
+      }
+      continue;
+    }
+
+    next.push({ ...s, activeUntil: shiftDateKey(date, -1) });
+    const tailFrom = until ? shiftDateKey(until, 1) : null;
+    if (tailFrom && (sUntil == null || tailFrom <= sUntil)) {
+      next.push({
+        ...s,
+        id: nextId(),
+        activeFrom: tailFrom,
+        activeUntil: sUntil,
+      });
+    }
+  }
+
+  if (!replaced) {
+    next.push({
+      id: nextId(),
+      parts: cloned,
+      activeFrom: date,
+      activeUntil: until,
+    });
+  }
+  return next;
 }

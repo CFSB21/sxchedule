@@ -66,6 +66,13 @@ export type DayPartConfig = {
   endMin: number;
 };
 
+export type DayPartSchedule = {
+  id: string;
+  parts: DayPartConfig[];
+  activeFrom: string;
+  activeUntil: string | null;
+};
+
 export type Settings = {
   notificationsEnabled: boolean;
   minutesBefore: number;
@@ -142,6 +149,7 @@ export type AlbaBackup = {
   todos?: TodoItem[];
   dayOverrides?: DayOverride[];
   templates?: RoutineTemplate[];
+  dayPartSchedules?: DayPartSchedule[];
 };
 
 export const DEFAULT_DAY_PARTS: DayPartConfig[] = [

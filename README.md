@@ -2,7 +2,7 @@
 
 Rutina diaria con Year Progress Bar, estadísticas, respaldos y avisos. Empaquetada para Android.
 
-**Versión 1.3**
+**Versión 1.4**
 
 ## Instalar en el teléfono
 
@@ -17,7 +17,8 @@ Los avisos del APK usan alarmas del sistema: suenan aunque cierres la app.
 
 - Se guardan solos en el dispositivo.
 - **Datos → Exportar respaldo** descarga (o comparte) un JSON.
-- **Importar** puede reemplazar o fusionar.
+- **Importar** reemplaza lo actual.
+- **Borrar todos los datos** deja la app vacía.
 
 ## Código
 
