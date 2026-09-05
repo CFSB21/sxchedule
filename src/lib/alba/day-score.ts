@@ -1,7 +1,7 @@
 import { dueWithOverrides } from "./overrides";
 import { duePassives } from "./schedule";
 import { isCompleteLineage } from "./stats";
-import { fromDateKey, shiftDateKey, toDateKey } from "./time";
+import { fromDateKey, toDateKey } from "./time";
 import { todoProgress } from "./todos";
 import type {
   Completion,
@@ -78,14 +78,17 @@ export function dayScore(
   return { date: dateKey, total, done, missed, tone, future };
 }
 
-export function yearScores(input: ScoreInput, year: number, today: string) {
+export function monthScores(
+  input: ScoreInput,
+  year: number,
+  monthIndex: number,
+  today: string,
+) {
   const map = new Map<string, DayScore>();
   const start = dataStart(input, today);
-  let key = `${year}-01-01`;
-  const end = `${year}-12-31`;
-  while (key <= end) {
+  for (const key of monthCells(year, monthIndex)) {
+    if (!key) continue;
     map.set(key, dayScore(input, key, today, start));
-    key = shiftDateKey(key, 1);
   }
   return map;
 }

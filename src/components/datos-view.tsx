@@ -333,7 +333,7 @@ function AppearanceCard({
               El contraste del texto sobre el principal se calcula solo.
             </DialogDescription>
           </DialogHeader>
-          <ul className="space-y-2">
+          <ul className="max-h-80 space-y-2 overflow-y-auto">
             {PALETTE_FIELDS.map((field) => (
               <li
                 key={field.key}

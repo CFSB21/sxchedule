@@ -27,6 +27,11 @@ export function formatLongDate(date: Date) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+export function formatMonthYear(date: Date) {
+  const raw = format(date, "MMMM yyyy", { locale: es });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 export function formatShortDate(date: Date) {
   return format(date, "d MMM", { locale: es });
 }

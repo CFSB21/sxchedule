@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { YearCalendar } from "@/components/year-calendar";
+import { MonthCalendar } from "@/components/month-calendar";
 import {
   bestStreak,
   consistency,
@@ -57,14 +57,11 @@ export function StatsView() {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <div className="alba-enter">
+      <div className="alba-enter text-center">
         <h1 className="font-display text-3xl tracking-tight">Estadísticas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          El año, marcado por cómo cerraste cada día.
-        </p>
       </div>
 
-      <YearCalendar />
+      <MonthCalendar />
 
       <section className="alba-enter alba-enter-2 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Racha" value={`${streak}`} hint={`Mejor ${best}`} />

@@ -164,6 +164,9 @@ const backupSchema = z.object({
           accent: z.string().optional(),
           muted: z.string().optional(),
           border: z.string().optional(),
+          dayOk: z.string().optional(),
+          dayWarn: z.string().optional(),
+          dayFail: z.string().optional(),
         })
         .optional(),
     })

@@ -7,6 +7,9 @@ export type Palette = {
   accent: string;
   muted: string;
   border: string;
+  dayOk: string;
+  dayWarn: string;
+  dayFail: string;
 };
 
 export const DEFAULT_PALETTE: Palette = {
@@ -18,6 +21,9 @@ export const DEFAULT_PALETTE: Palette = {
   accent: "#2a2e27",
   muted: "#9a9488",
   border: "#32362e",
+  dayOk: "#6a9a78",
+  dayWarn: "#c9a44a",
+  dayFail: "#c56b62",
 };
 
 export const PALETTE_FIELDS: {
@@ -32,6 +38,9 @@ export const PALETTE_FIELDS: {
   { key: "accent", label: "Acento" },
   { key: "muted", label: "Texto suave" },
   { key: "border", label: "Bordes" },
+  { key: "dayOk", label: "Verde" },
+  { key: "dayWarn", label: "Amarillo" },
+  { key: "dayFail", label: "Rojo" },
 ];
 
 const HEX = /^#([0-9a-fA-F]{6})$/;
@@ -160,13 +169,10 @@ export function applyPalette(palette?: Partial<Palette> | null) {
   set("--color-heatmap-2", mix(merged.secondary, merged.primary, 0.55));
   set("--color-heatmap-3", mix(merged.secondary, merged.primary, 0.78));
   set("--color-heatmap-4", mix(merged.primary, merged.foreground, 0.25));
-  const ok = mix(merged.primary, "#4e9a62", 0.7);
-  const warn = mix(merged.primary, "#d2a63a", 0.78);
-  const fail = mix(merged.primary, "#d2675c", 0.78);
-  set("--color-day-ok", ok);
-  set("--color-day-ok-fg", contrastOn(ok));
-  set("--color-day-warn", warn);
-  set("--color-day-warn-fg", contrastOn(warn));
-  set("--color-day-fail", fail);
-  set("--color-day-fail-fg", contrastOn(fail));
+  set("--color-day-ok", merged.dayOk);
+  set("--color-day-ok-fg", contrastOn(merged.dayOk));
+  set("--color-day-warn", merged.dayWarn);
+  set("--color-day-warn-fg", contrastOn(merged.dayWarn));
+  set("--color-day-fail", merged.dayFail);
+  set("--color-day-fail-fg", contrastOn(merged.dayFail));
 }
