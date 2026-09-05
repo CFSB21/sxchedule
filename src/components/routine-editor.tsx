@@ -10,6 +10,7 @@ import type { Habit } from "@/lib/alba/types";
 
 export function RoutineEditor() {
   const habits = useRoutineStore((s) => s.habits);
+  const dayParts = useRoutineStore((s) => s.settings.dayParts);
   const addHabit = useRoutineStore((s) => s.addHabit);
   const updateHabit = useRoutineStore((s) => s.updateHabit);
   const deleteHabit = useRoutineStore((s) => s.deleteHabit);
@@ -21,6 +22,7 @@ export function RoutineEditor() {
 
   const grouped = DAY_PART_ORDER.map((part) => ({
     part,
+    label: dayParts.find((p) => p.id === part)?.name ?? DAY_PART_LABEL[part],
     items: habits
       .filter((h) => h.dayPart === part)
       .sort((a, b) => a.order - b.order),
@@ -87,7 +89,7 @@ export function RoutineEditor() {
             group.items.length === 0 ? null : (
               <section key={group.part}>
                 <h2 className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  {DAY_PART_LABEL[group.part]}
+                  {group.label}
                 </h2>
                 <ul className="space-y-2">
                   {group.items.map((habit, index) => {

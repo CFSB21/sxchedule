@@ -3,6 +3,7 @@ import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { z } from "zod";
 import { APP_NAME } from "@/lib/brand";
+import { normalizeDayParts } from "./day-parts";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -47,6 +48,15 @@ const completionSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   durationMin: z.number().min(0),
   completedAt: z.string(),
+  status: z.enum(["done", "failed"]).optional(),
+  excuse: z.string().max(280).optional(),
+});
+
+const dayPartSchema = z.object({
+  id: z.enum(["morning", "afternoon", "evening"]),
+  name: z.string().min(1).max(40),
+  startMin: z.number().int().min(0).max(24 * 60),
+  endMin: z.number().int().min(0).max(24 * 60),
 });
 
 const backupSchema = z.object({
@@ -60,6 +70,7 @@ const backupSchema = z.object({
       notificationsEnabled: z.boolean(),
       minutesBefore: z.number().int().min(0).max(120),
       theme: z.enum(["light", "dark"]).optional(),
+      dayParts: z.array(dayPartSchema).optional(),
     })
     .optional(),
 });
@@ -74,11 +85,16 @@ export function parseBackup(input: unknown): AlbaBackup {
       ...h,
       remind: h.remind !== false,
     })) as Habit[],
-    completions: parsed.completions,
+    completions: parsed.completions.map((c) => ({
+      ...c,
+      status: c.status === "failed" ? "failed" : "done",
+      excuse: c.status === "failed" ? c.excuse : undefined,
+    })),
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,
       theme: "dark",
+      dayParts: normalizeDayParts(parsed.settings?.dayParts),
     },
   };
 }

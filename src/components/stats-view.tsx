@@ -11,6 +11,7 @@ import {
   bestStreak,
   consistency,
   currentStreak,
+  dayMinutes,
   habitConsistency,
   heatmapCells,
   lastNDays,
@@ -56,9 +57,7 @@ export function StatsView() {
     return {
       key,
       label: formatWeekday(d),
-      minutes: completions
-        .filter((c) => c.date === key)
-        .reduce((s, c) => s + c.durationMin, 0),
+      minutes: dayMinutes(completions, key),
     };
   });
 

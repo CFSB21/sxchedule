@@ -11,7 +11,7 @@ import {
 } from "@/lib/alba/notifications";
 import { useRoutineStore } from "@/lib/alba/store";
 import { pad2, todayKey } from "@/lib/alba/time";
-import { APP_NAME } from "@/lib/brand";
+import { APP_NAME, APP_VERSION } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const LEAD_OPTIONS = [0, 5, 10, 15, 30];
@@ -252,8 +252,8 @@ export function DatosView() {
           <div>
             <h2 className="font-medium">Android</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              El código está en GitHub. Cada publicación genera un APK listo
-              para instalar en el teléfono.
+              Versión {APP_VERSION}. El código está en GitHub. Cada publicación
+              genera un APK listo para instalar en el teléfono.
             </p>
           </div>
           <Smartphone className="size-5 text-primary" />

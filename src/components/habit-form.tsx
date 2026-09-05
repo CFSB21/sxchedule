@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HABIT_ICON_IDS, HABIT_ICONS } from "@/lib/alba/icons";
+import { useRoutineStore } from "@/lib/alba/store";
 import { DAY_LABELS, DAY_NAMES, DAY_PART_LABEL } from "@/lib/alba/time";
 import type { DayPart, Habit, HabitIconId } from "@/lib/alba/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function HabitFormDialog({
   onSave: (draft: HabitDraft) => void;
   onDelete?: () => void;
 }) {
+  const dayParts = useRoutineStore((s) => s.settings.dayParts);
   const [draft, setDraft] = useState<HabitDraft>(EMPTY);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -148,13 +150,13 @@ export function HabitFormDialog({
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, dayPart: part }))}
                   className={cn(
-                    "h-11 rounded-md text-sm font-medium transition-colors",
+                    "h-11 rounded-md px-1 text-sm font-medium transition-colors",
                     draft.dayPart === part
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {DAY_PART_LABEL[part]}
+                  {dayParts.find((p) => p.id === part)?.name ?? DAY_PART_LABEL[part]}
                 </button>
               ))}
             </div>

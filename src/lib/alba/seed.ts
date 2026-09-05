@@ -144,6 +144,7 @@ export function createSeed(now = new Date()) {
         date: key,
         durationMin: Math.max(5, Math.round(habit.durationMin * variance)),
         completedAt: `${key}T12:00:00.000Z`,
+        status: "done",
       });
     }
   }
@@ -161,6 +162,7 @@ export function createSeed(now = new Date()) {
       date: today,
       durationMin: habit.durationMin,
       completedAt: now.toISOString(),
+      status: "done",
     });
   }
 

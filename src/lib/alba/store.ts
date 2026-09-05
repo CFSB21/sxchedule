@@ -1,10 +1,13 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { createSeed } from "./seed";
+import { normalizeDayParts } from "./day-parts";
 import type {
   AlbaBackup,
   Completion,
+  CompletionStatus,
   DayPart,
+  DayPartConfig,
   Habit,
   HabitIconId,
   Session,
@@ -37,13 +40,23 @@ type State = {
   deleteHabit: (id: string) => void;
   moveHabit: (id: string, direction: -1 | 1) => void;
   toggleComplete: (habitId: string, date: string) => void;
+  recordOutcome: (
+    habitId: string,
+    date: string,
+    status: CompletionStatus,
+    excuse?: string,
+  ) => void;
   startSession: (habitId: string) => void;
   pauseSession: () => void;
   resumeSession: () => void;
-  finishSession: () => void;
+  finishSession: (outcome?: {
+    status?: CompletionStatus;
+    excuse?: string;
+  }) => void;
   cancelSession: () => void;
   restoreDemo: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  updateDayPart: (id: DayPart, patch: Partial<DayPartConfig>) => void;
   exportBackup: () => AlbaBackup;
   replaceFromBackup: (backup: AlbaBackup) => void;
   mergeFromBackup: (backup: AlbaBackup) => void;
@@ -51,6 +64,13 @@ type State = {
 
 function elapsedMs(session: Session, now = Date.now()) {
   return session.accumulatedMs + (session.running ? now - session.startedAt : 0);
+}
+
+function newId(prefix: string) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now()}`;
 }
 
 export { elapsedMs };
@@ -68,10 +88,7 @@ export const useRoutineStore = create<State>()(
         set((s) => {
           const order = s.habits.reduce((m, h) => Math.max(m, h.order), -1) + 1;
           const habit: Habit = {
-            id:
-              typeof crypto !== "undefined" && crypto.randomUUID
-                ? crypto.randomUUID()
-                : `h-${Date.now()}`,
+            id: newId("h"),
             ...draft,
             name: draft.name.trim(),
             order,
@@ -127,8 +144,34 @@ export const useRoutineStore = create<State>()(
             date,
             durationMin: habit?.durationMin ?? 10,
             completedAt: new Date().toISOString(),
+            status: "done",
           };
           return { completions: [...s.completions, next] };
+        }),
+
+      recordOutcome: (habitId, date, status, excuse) =>
+        set((s) => {
+          if (status === "failed" && !excuse?.trim()) return s;
+          const habit = s.habits.find((h) => h.id === habitId);
+          const existing = completionFor(s.completions, habitId, date);
+          const row: Completion = {
+            id: existing?.id ?? `c-${date}-${habitId}`,
+            habitId,
+            date,
+            durationMin: status === "failed" ? 0 : (habit?.durationMin ?? 10),
+            completedAt: new Date().toISOString(),
+            status,
+            excuse: status === "failed" ? excuse!.trim() : undefined,
+          };
+          return {
+            completions: existing
+              ? s.completions.map((c) => (c.id === existing.id ? row : c))
+              : [...s.completions, row],
+            session:
+              s.session?.habitId === habitId && date === todayKey()
+                ? null
+                : s.session,
+          };
         }),
 
       startSession: (habitId) =>
@@ -162,9 +205,11 @@ export const useRoutineStore = create<State>()(
           };
         }),
 
-      finishSession: () => {
+      finishSession: (outcome) => {
         const { session, habits } = get();
         if (!session) return;
+        const status: CompletionStatus = outcome?.status ?? "done";
+        if (status === "failed" && !outcome?.excuse?.trim()) return;
         const habit = habits.find((h) => h.id === session.habitId);
         const minutes = Math.max(1, Math.round(elapsedMs(session) / 60000));
         const date = todayKey();
@@ -174,8 +219,10 @@ export const useRoutineStore = create<State>()(
             id: existing?.id ?? `c-${date}-${session.habitId}`,
             habitId: session.habitId,
             date,
-            durationMin: habit ? Math.max(1, minutes) : minutes,
+            durationMin: status === "failed" ? 0 : habit ? Math.max(1, minutes) : minutes,
             completedAt: new Date().toISOString(),
+            status,
+            excuse: status === "failed" ? outcome?.excuse?.trim() : undefined,
           };
           return {
             session: null,
@@ -199,7 +246,32 @@ export const useRoutineStore = create<State>()(
       },
 
       updateSettings: (patch) =>
-        set((s) => ({ settings: { ...s.settings, ...patch } })),
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            ...patch,
+            dayParts: normalizeDayParts(patch.dayParts ?? s.settings.dayParts),
+            theme: "dark",
+          },
+        })),
+
+      updateDayPart: (id, patch) =>
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            dayParts: normalizeDayParts(
+              s.settings.dayParts.map((p) =>
+                p.id === id
+                  ? {
+                      ...p,
+                      ...patch,
+                      name: (patch.name ?? p.name).trim() || p.name,
+                    }
+                  : p,
+              ),
+            ),
+          },
+        })),
 
       exportBackup: () => {
         const s = get();
@@ -209,7 +281,11 @@ export const useRoutineStore = create<State>()(
           exportedAt: new Date().toISOString(),
           habits: s.habits,
           completions: s.completions,
-          settings: { ...s.settings, theme: "dark" },
+          settings: {
+            ...s.settings,
+            theme: "dark",
+            dayParts: normalizeDayParts(s.settings.dayParts),
+          },
         };
       },
 
@@ -217,7 +293,12 @@ export const useRoutineStore = create<State>()(
         set({
           habits: backup.habits,
           completions: backup.completions,
-          settings: backup.settings,
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...backup.settings,
+            theme: "dark",
+            dayParts: normalizeDayParts(backup.settings?.dayParts),
+          },
           session: null,
           initialized: true,
         }),
@@ -263,8 +344,16 @@ export const useRoutineStore = create<State>()(
             ...h,
             remind: h.remind !== false,
           })),
-          completions: p.completions ?? current.completions,
-          settings: { ...DEFAULT_SETTINGS, ...p.settings, theme: "dark" },
+          completions: (p.completions ?? current.completions).map((c) => ({
+            ...c,
+            status: c.status === "failed" ? "failed" : "done",
+          })),
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...p.settings,
+            theme: "dark",
+            dayParts: normalizeDayParts(p.settings?.dayParts),
+          },
           initialized: true,
         };
       },

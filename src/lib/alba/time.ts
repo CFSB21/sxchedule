@@ -22,13 +22,6 @@ export function shiftDateKey(key: string, days: number) {
   return toDateKey(addDays(fromDateKey(key), days));
 }
 
-export function greeting(now = new Date()) {
-  const h = now.getHours();
-  if (h < 12) return "Buenos días";
-  if (h < 19) return "Buenas tardes";
-  return "Buenas noches";
-}
-
 export function formatLongDate(date: Date) {
   const raw = format(date, "EEEE d 'de' MMMM", { locale: es });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -68,7 +61,22 @@ export function isoDate(key: string) {
   return parseISO(`${key}T12:00:00`);
 }
 
+export function mondayOf(date: Date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+export function weekKeysMonday(dateKey: string) {
+  const monday = mondayOf(fromDateKey(dateKey));
+  return Array.from({ length: 7 }, (_, i) => toDateKey(addDays(monday, i)));
+}
+
 export const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"] as const;
+export const WEEK_LABELS_MON = ["L", "M", "X", "J", "V", "S", "D"] as const;
+export const WEEK_DAY_INDEX_MON = [1, 2, 3, 4, 5, 6, 0] as const;
 export const DAY_NAMES = [
   "Domingo",
   "Lunes",

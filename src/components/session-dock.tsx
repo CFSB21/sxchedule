@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, Check } from "lucide-react";
+import { Pause, Play, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { OutcomeDialog } from "@/components/outcome-dialog";
 import { ProgressRing } from "@/components/progress-ring";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { elapsedMs, useRoutineStore } from "@/lib/alba/store";
@@ -23,6 +24,7 @@ export function SessionDock() {
   const cancelSession = useRoutineStore((s) => s.cancelSession);
   const [now, setNow] = useState(Date.now());
   const [open, setOpen] = useState(false);
+  const [outcomeOpen, setOutcomeOpen] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -32,7 +34,10 @@ export function SessionDock() {
 
   useEffect(() => {
     if (session) setOpen(true);
-    else setOpen(false);
+    else {
+      setOpen(false);
+      setOutcomeOpen(false);
+    }
   }, [session]);
 
   if (!session) return null;
@@ -44,11 +49,12 @@ export function SessionDock() {
   const target = habit.durationMin * 60_000;
   const remaining = Math.max(0, target - elapsed);
   const overtime = elapsed > target;
+  const finished = remaining === 0;
   const progress = Math.min(1, elapsed / target);
   const Icon = HABIT_ICONS[habit.icon];
 
   function complete() {
-    finishSession();
+    finishSession({ status: "done" });
     toast.success("Hábito completado");
   }
 
@@ -91,37 +97,68 @@ export function SessionDock() {
                     : formatClock(remaining)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {overtime ? "Tiempo extra" : "Restante"}
+                  {finished ? "Tiempo cumplido" : overtime ? "Tiempo extra" : "Restante"}
                 </p>
               </div>
             </ProgressRing>
           </div>
           <div className="grid gap-2">
-            <Button onClick={complete} className="w-full">
-              <Check className="size-4" />
-              Completar
-            </Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  session.running ? pauseSession() : resumeSession()
-                }
-              >
-                {session.running ? (
-                  <Pause className="size-4" />
-                ) : (
-                  <Play className="size-4" />
-                )}
-                {session.running ? "Pausa" : "Seguir"}
-              </Button>
-              <Button variant="ghost" onClick={cancelSession}>
-                Cancelar
-              </Button>
-            </div>
+            {finished ? (
+              <>
+                <Button onClick={complete} className="w-full">
+                  <Check className="size-4" />
+                  Completada
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setOutcomeOpen(true)}
+                >
+                  <X className="size-4" />
+                  Fallida
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={complete} className="w-full">
+                  <Check className="size-4" />
+                  Completar
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      session.running ? pauseSession() : resumeSession()
+                    }
+                  >
+                    {session.running ? (
+                      <Pause className="size-4" />
+                    ) : (
+                      <Play className="size-4" />
+                    )}
+                    {session.running ? "Pausa" : "Seguir"}
+                  </Button>
+                  <Button variant="ghost" onClick={cancelSession}>
+                    Cancelar
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      <OutcomeDialog
+        open={outcomeOpen}
+        habitName={habit.name}
+        startOnExcuse
+        onOpenChange={setOutcomeOpen}
+        onDone={complete}
+        onFail={(excuse) => {
+          finishSession({ status: "failed", excuse });
+          toast("Marcado como fallido");
+        }}
+      />
     </>
   );
 }

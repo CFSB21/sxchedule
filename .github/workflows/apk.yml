@@ -22,6 +22,8 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: android-actions/setup-android@v3
+      - name: Read version
+        run: echo "APP_VERSION=$(tr -d '[:space:]' < VERSION)" >> $GITHUB_ENV
       - run: npm ci
       - run: npm run build:android
       - run: npx cap add android
@@ -39,7 +41,7 @@ jobs:
           path: dist-apk/Sxchedule.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-${{ github.run_number }}
-          name: Sxchedule ${{ github.run_number }}
+          tag_name: v${{ env.APP_VERSION }}
+          name: Sxchedule ${{ env.APP_VERSION }}
           files: dist-apk/Sxchedule.apk
           generate_release_notes: true

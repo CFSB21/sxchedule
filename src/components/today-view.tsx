@@ -1,25 +1,44 @@
-import { Check, ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Pencil, Play, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DayPartDialog } from "@/components/day-part-dialog";
+import { OutcomeDialog } from "@/components/outcome-dialog";
 import { ProgressRing } from "@/components/progress-ring";
+import { WeekStrip } from "@/components/week-strip";
+import { formatPartRange, resolvePartId } from "@/lib/alba/day-parts";
+import {
+  formatCountdown,
+  habitPhase,
+  habitWindow,
+} from "@/lib/alba/habit-timer";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import {
+  completionFor,
   dayMinutes,
   habitsForDate,
   isComplete,
 } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 import {
-  DAY_PART_LABEL,
   DAY_PART_ORDER,
   formatLongDate,
   formatMinutes,
   fromDateKey,
-  greeting,
-  shiftDateKey,
   todayKey,
 } from "@/lib/alba/time";
-import type { DayPart, Habit } from "@/lib/alba/types";
+import type { DayPart, DayPartConfig, Habit } from "@/lib/alba/types";
 import { cn } from "@/lib/utils";
+
+function useNow(intervalMs = 250) {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const id = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
 
 export function TodayView({
   date,
@@ -28,52 +47,64 @@ export function TodayView({
   date: string;
   onDateChange: (next: string) => void;
 }) {
+  const now = useNow(250);
   const habits = useRoutineStore((s) => s.habits);
   const completions = useRoutineStore((s) => s.completions);
+  const settings = useRoutineStore((s) => s.settings);
   const toggleComplete = useRoutineStore((s) => s.toggleComplete);
+  const recordOutcome = useRoutineStore((s) => s.recordOutcome);
   const startSession = useRoutineStore((s) => s.startSession);
+  const updateDayPart = useRoutineStore((s) => s.updateDayPart);
   const session = useRoutineStore((s) => s.session);
 
   const day = fromDateKey(date);
-  const today = todayKey();
-  const isToday = date === today;
+  const today = now ? todayKey(now) : date;
+  const isToday = Boolean(now) && date === today;
   const due = habitsForDate(habits, day);
   const done = due.filter((h) => isComplete(completions, h.id, date));
   const minutes = dayMinutes(completions, date);
   const rate = due.length === 0 ? 0 : done.length / due.length;
+  const parts = settings.dayParts;
   const grouped = DAY_PART_ORDER.map((part) => ({
     part,
-    items: due.filter((h) => h.dayPart === part),
-  })).filter((g) => g.items.length > 0);
+    config: parts.find((p) => p.id === part) ?? null,
+    items: due.filter((h) => resolvePartId(h, parts) === part),
+  }));
+
+  const [editingPart, setEditingPart] = useState<DayPartConfig | null>(null);
+  const [outcome, setOutcome] = useState<{
+    habit: Habit;
+    excuseOnly: boolean;
+  } | null>(null);
+  const prevPhase = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isToday || !now) return;
+    for (const habit of due) {
+      if (session?.habitId === habit.id) continue;
+      const completion = completionFor(completions, habit.id, date);
+      const phase = habitPhase(habit, date, completion, now, true);
+      const prev = prevPhase.current[habit.id];
+      prevPhase.current[habit.id] = phase;
+      if (prev === "running" && phase === "awaiting") {
+        setOutcome({ habit, excuseOnly: false });
+        break;
+      }
+    }
+  }, [now, isToday, due, completions, date, session]);
 
   return (
     <div className="mx-auto w-full max-w-lg">
-      <div className="alba-enter flex items-center justify-between gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Día anterior"
-          onClick={() => onDateChange(shiftDateKey(date, -1))}
-        >
-          <ChevronLeft className="size-5" />
-        </Button>
-        <div className="text-center">
-          <p className="font-display text-3xl italic tracking-tight">
-            {isToday ? greeting() : "Ese día"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {formatLongDate(day)}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Día siguiente"
-          disabled={date >= today}
-          onClick={() => onDateChange(shiftDateKey(date, 1))}
-        >
-          <ChevronRight className="size-5" />
-        </Button>
+      <div className="alba-enter">
+        <WeekStrip
+          date={date}
+          today={today}
+          live={Boolean(now)}
+          onDateChange={onDateChange}
+        />
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          {formatLongDate(day)}
+        </p>
       </div>
 
       <section className="alba-enter alba-enter-1 mt-6 flex items-center gap-5 rounded-xl bg-card p-5 shadow-(--shadow-border)">
@@ -94,103 +125,254 @@ export function TodayView({
         </div>
       </section>
 
-      {due.length === 0 ? (
-        <div className="alba-enter alba-enter-2 mt-8 rounded-xl bg-card px-5 py-10 text-center shadow-(--shadow-border)">
-          <p className="font-display text-xl">Día libre</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            No hay hábitos programados para este día. Añádelos en Rutina.
-          </p>
-        </div>
-      ) : (
-        <div className="alba-enter alba-enter-2 mt-8 space-y-6">
-          {grouped.map((group) => (
+      <div className="alba-enter alba-enter-2 mt-8 space-y-6">
+        {grouped.map((group) => {
+          const config = group.config;
+          if (!config) return null;
+          return (
             <section key={group.part}>
-              <h2 className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {DAY_PART_LABEL[group.part as DayPart]}
-              </h2>
-              <ul className="space-y-2">
-                {group.items.map((habit) => (
-                  <HabitRow
-                    key={habit.id}
-                    habit={habit}
-                    done={isComplete(completions, habit.id, date)}
-                    isToday={isToday}
-                    sessionActive={session?.habitId === habit.id}
-                    onToggle={() => toggleComplete(habit.id, date)}
-                    onPlay={() => startSession(habit.id)}
-                  />
-                ))}
-              </ul>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {config.name}
+                  </h2>
+                  <p className="text-xs tabular-nums text-muted-foreground">
+                    {formatPartRange(config)}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Editar ${config.name}`}
+                  onClick={() => setEditingPart(config)}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+              </div>
+              {group.items.length === 0 ? (
+                <p className="rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground shadow-(--shadow-border)">
+                  Sin hábitos en este tramo.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {group.items.map((habit) => {
+                    const completion = completionFor(
+                      completions,
+                      habit.id,
+                      date,
+                    );
+                    const phase = habitPhase(
+                      habit,
+                      date,
+                      completion,
+                      now,
+                      isToday,
+                    );
+                    return (
+                      <HabitRow
+                        key={habit.id}
+                        habit={habit}
+                        date={date}
+                        phase={phase}
+                        completionExcuse={completion?.excuse}
+                        isToday={isToday}
+                        now={now}
+                        sessionActive={session?.habitId === habit.id}
+                        onToggle={() => toggleComplete(habit.id, date)}
+                        onPlay={() => startSession(habit.id)}
+                        onDone={() => {
+                          recordOutcome(habit.id, date, "done");
+                          toast.success("Hábito completado");
+                        }}
+                        onAskFail={() =>
+                          setOutcome({ habit, excuseOnly: true })
+                        }
+                      />
+                    );
+                  })}
+                </ul>
+              )}
             </section>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
+
+      <DayPartDialog
+        open={Boolean(editingPart)}
+        part={editingPart}
+        onOpenChange={(open) => {
+          if (!open) setEditingPart(null);
+        }}
+        onSave={(patch) => {
+          if (!editingPart) return;
+          updateDayPart(editingPart.id as DayPart, patch);
+          toast.success("Momento actualizado");
+        }}
+      />
+
+      <OutcomeDialog
+        open={Boolean(outcome)}
+        habitName={outcome?.habit.name ?? ""}
+        startOnExcuse={outcome?.excuseOnly}
+        onOpenChange={(open) => {
+          if (!open) setOutcome(null);
+        }}
+        onDone={() => {
+          if (!outcome) return;
+          recordOutcome(outcome.habit.id, date, "done");
+          toast.success("Hábito completado");
+        }}
+        onFail={(excuse) => {
+          if (!outcome) return;
+          recordOutcome(outcome.habit.id, date, "failed", excuse);
+          toast("Marcado como fallido");
+        }}
+      />
     </div>
   );
 }
 
 function HabitRow({
   habit,
-  done,
+  date,
+  phase,
+  completionExcuse,
   isToday,
+  now,
   sessionActive,
   onToggle,
   onPlay,
+  onDone,
+  onAskFail,
 }: {
   habit: Habit;
-  done: boolean;
+  date: string;
+  phase: ReturnType<typeof habitPhase>;
+  completionExcuse?: string;
   isToday: boolean;
+  now: Date | null;
   sessionActive: boolean;
   onToggle: () => void;
   onPlay: () => void;
+  onDone: () => void;
+  onAskFail: () => void;
 }) {
   const Icon = HABIT_ICONS[habit.icon];
+  const win = habitWindow(habit, date);
+  const t = now?.getTime() ?? 0;
+  let clock: string | null = null;
+  let clockHint: string | null = null;
+  if (win && now && !sessionActive) {
+    if (phase === "upcoming") {
+      clock = formatCountdown(win.start.getTime() - t);
+      clockHint = "Empieza";
+    } else if (phase === "running") {
+      clock = formatCountdown(win.end.getTime() - t);
+      clockHint = "Restante";
+    }
+  }
+
+  const done = phase === "done";
+  const failed = phase === "failed";
+  const awaiting = phase === "awaiting" && !sessionActive;
+  const canPlay =
+    isToday &&
+    !done &&
+    !failed &&
+    !awaiting &&
+    !sessionActive &&
+    (phase === "idle" || phase === "upcoming");
+
   return (
     <li
       className={cn(
-        "flex items-center gap-3 rounded-lg bg-card p-2 pr-2 shadow-(--shadow-border) transition-opacity duration-(--motion-quick)",
-        done && "opacity-70",
+        "rounded-lg bg-card p-2 shadow-(--shadow-border) transition-opacity duration-(--motion-quick)",
+        (done || failed) && "opacity-70",
       )}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={done}
-        aria-label={done ? `Desmarcar ${habit.name}` : `Completar ${habit.name}`}
-        className={cn(
-          "grid size-11 shrink-0 place-items-center rounded-md transition-colors duration-(--motion-quick)",
-          done
-            ? "bg-primary text-primary-foreground"
-            : "bg-secondary text-muted-foreground hover:text-foreground",
-        )}
-      >
-        {done ? <Check className="size-4" /> : <Icon className="size-4" />}
-      </button>
-      <div className="min-w-0 flex-1">
-        <p
+      <div className="flex items-center gap-3 pr-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={done}
+          aria-label={
+            failed
+              ? `Quitar fallo de ${habit.name}`
+              : done
+                ? `Desmarcar ${habit.name}`
+                : `Completar ${habit.name}`
+          }
           className={cn(
-            "truncate font-medium",
-            done && "text-muted-foreground line-through",
+            "grid size-11 shrink-0 place-items-center rounded-md transition-colors duration-(--motion-quick)",
+            done && "bg-primary text-primary-foreground",
+            failed && "bg-destructive text-destructive-foreground",
+            !done &&
+              !failed &&
+              "bg-secondary text-muted-foreground hover:text-foreground",
           )}
         >
-          {habit.name}
-        </p>
-        <p className="text-xs tabular-nums text-muted-foreground">
-          {habit.scheduledTime ? `${habit.scheduledTime} · ` : ""}
-          {habit.durationMin} min
-        </p>
+          {done ? (
+            <Check className="size-4" />
+          ) : failed ? (
+            <X className="size-4" />
+          ) : (
+            <Icon className="size-4" />
+          )}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p
+            className={cn(
+              "truncate font-medium",
+              (done || failed) && "text-muted-foreground line-through",
+            )}
+          >
+            {habit.name}
+          </p>
+          <p className="text-xs tabular-nums text-muted-foreground">
+            {failed
+              ? completionExcuse
+                ? `Fallida · ${completionExcuse}`
+                : "Fallida"
+              : `${habit.scheduledTime ? `${habit.scheduledTime} · ` : ""}${habit.durationMin} min`}
+          </p>
+        </div>
+        {clock ? (
+          <div className="shrink-0 text-right">
+            <p
+              className={cn(
+                "font-display text-lg tabular-nums leading-none tracking-tight",
+                phase === "running" && "text-primary",
+              )}
+            >
+              {clock}
+            </p>
+            <p className="mt-0.5 text-xs tracking-wide text-muted-foreground uppercase">
+              {clockHint}
+            </p>
+          </div>
+        ) : canPlay ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Iniciar ${habit.name}`}
+            onClick={onPlay}
+          >
+            <Play className="size-4" />
+          </Button>
+        ) : null}
       </div>
-      {isToday && !done && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Iniciar ${habit.name}`}
-          onClick={onPlay}
-          disabled={sessionActive}
-        >
-          <Play className="size-4" />
-        </Button>
-      )}
+      {awaiting ? (
+        <div className="mt-2 grid grid-cols-2 gap-2 px-1 pb-1">
+          <Button onClick={onDone}>
+            <Check className="size-4" />
+            Completada
+          </Button>
+          <Button variant="outline" onClick={onAskFail}>
+            <X className="size-4" />
+            Fallida
+          </Button>
+        </div>
+      ) : null}
     </li>
   );
 }

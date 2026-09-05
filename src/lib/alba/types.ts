@@ -34,12 +34,16 @@ export type Habit = {
   remind: boolean;
 };
 
+export type CompletionStatus = "done" | "failed";
+
 export type Completion = {
   id: string;
   habitId: string;
   date: string;
   durationMin: number;
   completedAt: string;
+  status?: CompletionStatus;
+  excuse?: string;
 };
 
 export type Session = {
@@ -51,10 +55,18 @@ export type Session = {
 
 export type ThemeMode = "light" | "dark";
 
+export type DayPartConfig = {
+  id: DayPart;
+  name: string;
+  startMin: number;
+  endMin: number;
+};
+
 export type Settings = {
   notificationsEnabled: boolean;
   minutesBefore: number;
   theme: ThemeMode;
+  dayParts: DayPartConfig[];
 };
 
 export type AlbaBackup = {
@@ -66,8 +78,15 @@ export type AlbaBackup = {
   settings: Settings;
 };
 
+export const DEFAULT_DAY_PARTS: DayPartConfig[] = [
+  { id: "morning", name: "Mañana", startMin: 5 * 60, endMin: 12 * 60 },
+  { id: "afternoon", name: "Tarde", startMin: 12 * 60, endMin: 19 * 60 },
+  { id: "evening", name: "Noche", startMin: 19 * 60, endMin: 5 * 60 },
+];
+
 export const DEFAULT_SETTINGS: Settings = {
   notificationsEnabled: false,
   minutesBefore: 5,
   theme: "dark",
+  dayParts: DEFAULT_DAY_PARTS.map((p) => ({ ...p })),
 };

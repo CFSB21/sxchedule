@@ -11,12 +11,32 @@ export function habitsForDate(habits: Habit[], date: Date) {
     });
 }
 
+export function isFailedCompletion(c: Completion) {
+  return c.status === "failed";
+}
+
+export function isDoneCompletion(c: Completion) {
+  return c.status !== "failed";
+}
+
 export function isComplete(
   completions: Completion[],
   habitId: string,
   date: string,
 ) {
-  return completions.some((c) => c.habitId === habitId && c.date === date);
+  return completions.some(
+    (c) => c.habitId === habitId && c.date === date && isDoneCompletion(c),
+  );
+}
+
+export function isFailed(
+  completions: Completion[],
+  habitId: string,
+  date: string,
+) {
+  return completions.some(
+    (c) => c.habitId === habitId && c.date === date && isFailedCompletion(c),
+  );
 }
 
 export function completionFor(
@@ -45,7 +65,10 @@ export function dayMinutes(
 ) {
   return completions
     .filter(
-      (c) => c.date === dateKey && (!habitIds || habitIds.has(c.habitId)),
+      (c) =>
+        c.date === dateKey &&
+        isDoneCompletion(c) &&
+        (!habitIds || habitIds.has(c.habitId)),
     )
     .reduce((sum, c) => sum + c.durationMin, 0);
 }
@@ -135,7 +158,10 @@ export function minutesInRange(
   endKey: string,
 ) {
   return completions
-    .filter((c) => c.date >= startKey && c.date <= endKey)
+    .filter(
+      (c) =>
+        c.date >= startKey && c.date <= endKey && isDoneCompletion(c),
+    )
     .reduce((sum, c) => sum + c.durationMin, 0);
 }
 
@@ -165,7 +191,7 @@ export function habitConsistency(
     scheduled += 1;
     const key = toDateKey(date);
     const c = completionFor(completions, habit.id, key);
-    if (c) {
+    if (c && isDoneCompletion(c)) {
       done += 1;
       minutes += c.durationMin;
     }
