@@ -2,17 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { DayOverrideDialog } from "@/components/day-override-dialog";
 import { DayPartDialog } from "@/components/day-part-dialog";
 import { DayProgress } from "@/components/day-progress";
-import { HabitFormDialog, type HabitDraft } from "@/components/habit-form";
 import { HabitsPanel } from "@/components/habits-panel";
 import { OutcomeDialog } from "@/components/outcome-dialog";
 import { TodoPanel } from "@/components/todo-panel";
@@ -74,8 +66,6 @@ export function TodayView({
   const recordOutcome = useRoutineStore((s) => s.recordOutcome);
   const startSession = useRoutineStore((s) => s.startSession);
   const updateDayPart = useRoutineStore((s) => s.updateDayPart);
-  const updateHabit = useRoutineStore((s) => s.updateHabit);
-  const deleteHabit = useRoutineStore((s) => s.deleteHabit);
   const session = useRoutineStore((s) => s.session);
 
   const day = fromDateKey(date);
@@ -101,9 +91,7 @@ export function TodayView({
 
   const [editingPart, setEditingPart] = useState<DayPartConfig | null>(null);
   const [panel, setPanel] = useState<"habits" | "todos" | null>(null);
-  const [menuHabit, setMenuHabit] = useState<Habit | null>(null);
   const [overrideHabit, setOverrideHabit] = useState<Habit | null>(null);
-  const [routineHabit, setRoutineHabit] = useState<Habit | null>(null);
   const [outcome, setOutcome] = useState<{
     habit: Habit;
     excuseOnly: boolean;
@@ -203,7 +191,9 @@ export function TodayView({
                         onAskFail={() =>
                           setOutcome({ habit, excuseOnly: true })
                         }
-                        onEdit={() => setMenuHabit(sourceHabit(habit.id) ?? habit)}
+                        onEdit={() =>
+                          setOverrideHabit(sourceHabit(habit.id) ?? habit)
+                        }
                       />
                     );
                   })}
@@ -238,67 +228,12 @@ export function TodayView({
         }}
       />
 
-      <Dialog
-        open={Boolean(menuHabit)}
-        onOpenChange={(open) => {
-          if (!open) setMenuHabit(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{menuHabit?.name}</DialogTitle>
-            <DialogDescription>
-              ¿Cambiar solo el {formatLongDate(day)} o la rutina entera?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Button
-              onClick={() => {
-                if (!menuHabit) return;
-                setOverrideHabit(menuHabit);
-                setMenuHabit(null);
-              }}
-            >
-              Solo este día
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (!menuHabit) return;
-                setRoutineHabit(menuHabit);
-                setMenuHabit(null);
-              }}
-            >
-              Editar la rutina
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <DayOverrideDialog
         open={Boolean(overrideHabit)}
         habit={overrideHabit}
         date={date}
         onOpenChange={(open) => {
           if (!open) setOverrideHabit(null);
-        }}
-      />
-
-      <HabitFormDialog
-        open={Boolean(routineHabit)}
-        habit={routineHabit}
-        onOpenChange={(open) => {
-          if (!open) setRoutineHabit(null);
-        }}
-        onSave={(draft: HabitDraft) => {
-          if (!routineHabit) return;
-          updateHabit(routineHabit.id, draft);
-          toast.success("Rutina actualizada");
-        }}
-        onDelete={() => {
-          if (!routineHabit) return;
-          deleteHabit(routineHabit.id);
-          toast.success("Actividad eliminada");
         }}
       />
 

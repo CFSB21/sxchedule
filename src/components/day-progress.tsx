@@ -1,60 +1,54 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ProgressRing } from "@/components/progress-ring";
 import { formatMinutes } from "@/lib/alba/time";
+import { cn } from "@/lib/utils";
 
-function Meter({ value }: { value: number }) {
-  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
-  return (
-    <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-      <div
-        className="h-full rounded-full bg-primary transition-[width] duration-(--motion-slow) ease-(--ease-smooth-out)"
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-function Row({
+function RingStat({
   label,
   done,
   total,
   onOpen,
-  side,
 }: {
   label: string;
   done: number;
   total: number;
   onOpen?: () => void;
-  side?: "left" | "right";
 }) {
+  const value = total === 0 ? 0 : done / total;
+  const pct = Math.round(value * 100);
   const inner = (
     <>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1 text-sm font-medium">
-          {side === "left" ? (
-            <ChevronLeft className="size-3.5 text-muted-foreground" />
-          ) : null}
-          {label}
-          {side === "right" ? (
-            <ChevronRight className="size-3.5 text-muted-foreground" />
-          ) : null}
+      <ProgressRing value={value} size={80} stroke={7}>
+        <span className="font-display text-lg tabular-nums leading-none tracking-tight">
+          {pct}
+          <span className="text-xs text-muted-foreground">%</span>
         </span>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {done}/{total}
-        </span>
-      </div>
-      <Meter value={total === 0 ? 0 : done / total} />
+      </ProgressRing>
+      <span className="mt-2 text-sm font-medium">{label}</span>
+      <span className="text-xs tabular-nums text-muted-foreground">
+        {done}/{total}
+      </span>
     </>
   );
 
+  const className = cn(
+    "flex min-h-11 flex-col items-center rounded-lg py-1",
+    onOpen && "transition-colors hover:bg-accent/60",
+  );
+
   if (!onOpen) {
-    return <div className="py-1">{inner}</div>;
+    return (
+      <div className={className} aria-label={`${label} ${done} de ${total}`}>
+        {inner}
+      </div>
+    );
   }
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="block min-h-11 w-full rounded-md py-1 text-left transition-colors hover:bg-accent/60"
+      className={className}
+      aria-label={`${label} ${done} de ${total}`}
     >
       {inner}
     </button>
@@ -90,21 +84,23 @@ export function DayProgress({
           {formatMinutes(minutes)} en rutina
         </p>
       </div>
-      <div className="mt-4 grid gap-3">
-        <Row label="Rutina" done={routineDone} total={routineTotal} />
-        <Row
+      <div className="mt-5 grid grid-cols-3 gap-1">
+        <RingStat
           label="Hábitos"
           done={customDone}
           total={customTotal}
           onOpen={onOpenHabits}
-          side="left"
         />
-        <Row
+        <RingStat
+          label="Rutina"
+          done={routineDone}
+          total={routineTotal}
+        />
+        <RingStat
           label="To-Do"
           done={todoDone}
           total={todoTotal}
           onOpen={onOpenTodos}
-          side="right"
         />
       </div>
     </section>
