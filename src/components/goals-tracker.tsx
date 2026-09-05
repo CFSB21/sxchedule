@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useStatsYear } from "@/components/year-select";
 import { useLongPress } from "@/lib/alba/long-press";
 import {
   formatGoalDone,
@@ -37,12 +38,11 @@ export function GoalsTracker() {
   const completions = useRoutineStore((s) => s.completions);
   const passiveHabits = useRoutineStore((s) => s.passiveHabits);
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
-  const statsScope = useRoutineStore((s) => s.settings.statsScope ?? "year");
   const addGoal = useRoutineStore((s) => s.addGoal);
   const updateGoal = useRoutineStore((s) => s.updateGoal);
   const deleteGoal = useRoutineStore((s) => s.deleteGoal);
+  const { year } = useStatsYear();
   const today = todayKey();
-  const year = today.slice(0, 4);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<YearGoal | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -55,15 +55,16 @@ export function GoalsTracker() {
 
   const rows = useMemo(
     () =>
-      goals.map((goal) =>
-        progressForGoal(
-          goal,
-          { habits, completions, passiveHabits, passiveChecks },
-          statsScope,
-          today,
+      goals
+        .filter((goal) => goal.year === year)
+        .map((goal) =>
+          progressForGoal(
+            goal,
+            { habits, completions, passiveHabits, passiveChecks },
+            today,
+          ),
         ),
-      ),
-    [goals, habits, completions, passiveHabits, passiveChecks, statsScope, today],
+    [goals, habits, completions, passiveHabits, passiveChecks, year, today],
   );
 
   function openAdd() {
@@ -96,6 +97,7 @@ export function GoalsTracker() {
       addGoal({
         kind: draft.kind,
         name: draft.name,
+        year,
         targetHours: Number(draft.targetHours),
       });
       toast.success("Meta añadida");
@@ -108,9 +110,7 @@ export function GoalsTracker() {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h2 className="font-medium">Metas del año</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {statsScope === "all" ? "Todos los años" : year}
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{year}</p>
         </div>
         <button
           type="button"
@@ -124,7 +124,7 @@ export function GoalsTracker() {
 
       {rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Aún no hay metas. Añade una de horas o de días.
+          Aún no hay metas para {year}. Añade una de horas o de días.
         </p>
       ) : (
         <ul className="mt-4 space-y-3">

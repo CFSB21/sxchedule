@@ -12,7 +12,7 @@ import type {
   TodoItem,
   YearGoal,
 } from "./types";
-import { toDateKey } from "./time";
+import { toDateKey, currentYear } from "./time";
 
 function hash01(input: string) {
   let h = 2166136261;
@@ -161,19 +161,25 @@ function missChance(lineage: string, dow: number) {
   return base[lineage] ?? 0.2;
 }
 
-export function createSeed(now = new Date()) {
-  const fromDate = "2000-01-01";
-  const templates = defaultTemplates();
-  const habits = defaultHabits(fromDate);
-  const passiveHabits = defaultPassiveHabits(fromDate);
-  const completions: Completion[] = [];
-  const passiveChecks: PassiveCheck[] = [];
-  const todos: TodoItem[] = [];
-  const dayOverrides: DayOverride[] = [];
-  const dayPartSchedules: DayPartSchedule[] = defaultDayPartSchedules();
-  const today = toDateKey(now);
+const TODO_TITLES = [
+  "Revisar correo",
+  "Pagar un recibo",
+  "Devolver una llamada",
+  "Organizar la mesa",
+  "Preparar la comida",
+];
 
-  for (let i = 56; i >= 1; i--) {
+function fillHistory(
+  now: Date,
+  startOffset: number,
+  endOffset: number,
+  habits: Habit[],
+  passiveHabits: PassiveHabit[],
+  completions: Completion[],
+  passiveChecks: PassiveCheck[],
+  todos: TodoItem[],
+) {
+  for (let i = startOffset; i >= endOffset; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
     const key = toDateKey(d);
@@ -219,6 +225,51 @@ export function createSeed(now = new Date()) {
         });
       }
     }
+  }
+}
+
+export function createSeed(now = new Date()) {
+  const fromDate = "2000-01-01";
+  const templates = defaultTemplates();
+  const habits = defaultHabits(fromDate);
+  const passiveHabits = defaultPassiveHabits(fromDate);
+  const completions: Completion[] = [];
+  const passiveChecks: PassiveCheck[] = [];
+  const todos: TodoItem[] = [];
+  const dayOverrides: DayOverride[] = [];
+  const dayPartSchedules: DayPartSchedule[] = defaultDayPartSchedules();
+  const today = toDateKey(now);
+
+  fillHistory(
+    now,
+    56,
+    1,
+    habits,
+    passiveHabits,
+    completions,
+    passiveChecks,
+    todos,
+  );
+
+  const prevDec = new Date(currentYear(now) - 1, 11, 31);
+  const prevStart = new Date(currentYear(now) - 1, 11, 10);
+  const daysToDec31 = Math.round(
+    (now.getTime() - prevDec.getTime()) / 86400000,
+  );
+  const daysToDec10 = Math.round(
+    (now.getTime() - prevStart.getTime()) / 86400000,
+  );
+  if (daysToDec10 > 56) {
+    fillHistory(
+      now,
+      daysToDec10,
+      Math.max(daysToDec31, 57),
+      habits,
+      passiveHabits,
+      completions,
+      passiveChecks,
+      todos,
+    );
   }
 
   const morningToday = habits.filter(
@@ -284,37 +335,48 @@ export function createSeed(now = new Date()) {
   };
 }
 
-export function defaultGoals(): YearGoal[] {
+export function defaultGoals(now = new Date()): YearGoal[] {
+  const year = currentYear(now);
+  const prev = year - 1;
   return [
     {
-      id: "g-train",
+      id: `g-train-${year}`,
       kind: "hours",
       name: "Entrenamiento",
       targetHours: 80,
+      year,
     },
     {
-      id: "g-read",
+      id: `g-read-${year}`,
       kind: "hours",
       name: "Lectura",
       targetHours: 40,
+      year,
     },
     {
-      id: "g-bed",
+      id: `g-bed-${year}`,
       kind: "days",
       name: "Hacer la cama",
+      year,
     },
     {
-      id: "g-desk",
+      id: `g-desk-${year}`,
       kind: "days",
       name: "Escritorio en orden",
+      year,
+    },
+    {
+      id: `g-train-${prev}`,
+      kind: "hours",
+      name: "Entrenamiento",
+      targetHours: 80,
+      year: prev,
+    },
+    {
+      id: `g-bed-${prev}`,
+      kind: "days",
+      name: "Hacer la cama",
+      year: prev,
     },
   ];
 }
-
-const TODO_TITLES = [
-  "Revisar correo",
-  "Pagar un recibo",
-  "Devolver una llamada",
-  "Organizar la mesa",
-  "Preparar la comida",
-];

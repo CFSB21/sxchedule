@@ -1,5 +1,5 @@
 import { dueHabits, isActiveOn, lineageOf } from "./schedule";
-import type { Completion, Habit } from "./types";
+import type { Completion, Habit, HabitIconId } from "./types";
 import { fromDateKey, shiftDateKey, toDateKey, todayKey } from "./time";
 
 export function habitsForDate(habits: Habit[], date: Date) {
@@ -131,13 +131,17 @@ export function currentStreak(
   return streak;
 }
 
-export function bestStreak(habits: Habit[], completions: Completion[]) {
+export function bestStreak(
+  habits: Habit[],
+  completions: Completion[],
+  now = new Date(),
+) {
   if (habits.length === 0) return 0;
   const dates = new Set(completions.map((c) => c.date));
   if (dates.size === 0) return 0;
   const sorted = [...dates].sort();
   const start = sorted[0]!;
-  const end = todayKey();
+  const end = toDateKey(now);
   let best = 0;
   let cur = 0;
   let key = start;
@@ -277,6 +281,7 @@ export function activeLineageRows(
   habits: Habit[],
   completions: Completion[],
   days: number,
+  now = new Date(),
 ) {
   const seen = new Set<string>();
   const rows: ReturnType<typeof lineageConsistency>[] = [];
@@ -287,7 +292,7 @@ export function activeLineageRows(
     const lin = lineageOf(habit);
     if (seen.has(lin)) continue;
     seen.add(lin);
-    rows.push(lineageConsistency(habits, completions, lin, days));
+    rows.push(lineageConsistency(habits, completions, lin, days, now));
   }
   return rows;
 }
@@ -315,4 +320,50 @@ export function heatmapCells(
     });
   }
   return cells;
+}
+
+export type ActivityTimeRow = {
+  key: string;
+  name: string;
+  icon: HabitIconId;
+  minutes: number;
+};
+
+export function activityTimeRanking(
+  habits: Habit[],
+  completions: Completion[],
+  start: string,
+  end: string,
+): ActivityTimeRow[] {
+  const byId = new Map(habits.map((h) => [h.id, h]));
+  const display = new Map<string, Habit>();
+  for (const habit of habits) {
+    const lin = lineageOf(habit);
+    const current = display.get(lin);
+    if (!current || habit.activeUntil == null) display.set(lin, habit);
+  }
+  const buckets = new Map<string, ActivityTimeRow>();
+  for (const c of completions) {
+    if (!isDoneCompletion(c)) continue;
+    if (c.date < start || c.date > end) continue;
+    if (c.durationMin <= 0) continue;
+    const habit = byId.get(c.habitId);
+    const lin = habit ? lineageOf(habit) : c.habitId;
+    const shown = display.get(lin) ?? habit;
+    const prev = buckets.get(lin);
+    if (prev) {
+      prev.minutes += c.durationMin;
+      continue;
+    }
+    buckets.set(lin, {
+      key: lin,
+      name: shown?.name ?? "Actividad",
+      icon: shown?.icon ?? "timer",
+      minutes: c.durationMin,
+    });
+  }
+  return [...buckets.values()].sort((a, b) => {
+    if (b.minutes !== a.minutes) return b.minutes - a.minutes;
+    return a.name.localeCompare(b.name, "es");
+  });
 }

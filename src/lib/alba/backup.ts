@@ -9,6 +9,8 @@ import { defaultPassiveHabits } from "./seed";
 import { normalizeTodo } from "./todos";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
+import { currentYear } from "./time";
+import { normalizeGoal } from "./goals";
 
 const ICON_IDS = [
   "brain",
@@ -169,6 +171,7 @@ const backupSchema = z.object({
           dayFail: z.string().optional(),
         })
         .optional(),
+      statsYear: z.number().int().min(2000).max(2100).optional(),
       statsScope: z.enum(["year", "all"]).optional(),
     })
     .optional(),
@@ -178,6 +181,7 @@ const backupSchema = z.object({
         id: z.string().min(1),
         kind: z.enum(["hours", "days"]),
         name: z.string().min(1).max(80),
+        year: z.number().int().min(2000).max(2100).optional(),
         targetHours: z.number().min(0).max(10000).optional(),
       }),
     )
@@ -205,14 +209,25 @@ export function parseBackup(input: unknown): AlbaBackup {
     dayOverrides: parsed.dayOverrides ?? [],
     templates: parsed.templates,
     dayPartSchedules: parsed.dayPartSchedules,
-    goals: parsed.goals ?? [],
+    goals: (parsed.goals ?? []).map((g) =>
+      normalizeGoal(
+        {
+          id: g.id,
+          kind: g.kind,
+          name: g.name,
+          year: g.year ?? currentYear(),
+          targetHours: g.targetHours,
+        },
+        currentYear(),
+      ),
+    ),
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,
       theme: "dark",
       dayParts: normalizeDayParts(parsed.settings?.dayParts),
       palette: normalizePalette(parsed.settings?.palette),
-      statsScope: parsed.settings?.statsScope === "all" ? "all" : "year",
+      statsYear: parsed.settings?.statsYear ?? currentYear(),
     },
   };
 }

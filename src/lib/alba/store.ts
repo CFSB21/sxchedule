@@ -49,8 +49,9 @@ import type {
   YearGoalKind,
 } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
-import { fromDateKey, todayKey } from "./time";
+import { fromDateKey, todayKey, currentYear } from "./time";
 import { completionFor, completionForLineage } from "./stats";
+import { normalizeGoal } from "./goals";
 
 type HabitDraft = {
   name: string;
@@ -135,6 +136,7 @@ type State = {
   addGoal: (draft: {
     kind: YearGoalKind;
     name: string;
+    year: number;
     targetHours?: number;
   }) => void;
   updateGoal: (
@@ -615,10 +617,14 @@ export const useRoutineStore = create<State>()(
         set((s) => {
           const name = draft.name.trim();
           if (!name) return s;
+          const year = Number.isInteger(draft.year)
+            ? draft.year
+            : currentYear();
           const goal: YearGoal = {
             id: newId("g"),
             kind: draft.kind === "days" ? "days" : "hours",
             name,
+            year,
             targetHours:
               draft.kind === "hours"
                 ? Math.max(0.5, Number(draft.targetHours) || 1)
@@ -864,13 +870,15 @@ export const useRoutineStore = create<State>()(
           dayPartSchedules:
             backup.dayPartSchedules ??
             schedulesFromParts(backup.settings?.dayParts),
-          goals: backup.goals ?? [],
+          goals: backup.goals?.map((g) => normalizeGoal(g, currentYear())) ?? [],
           settings: {
             ...DEFAULT_SETTINGS,
             ...backup.settings,
             theme: "dark",
             dayParts: normalizeDayParts(backup.settings?.dayParts),
             palette: normalizePalette(backup.settings?.palette),
+            statsYear:
+              backup.settings?.statsYear ?? DEFAULT_SETTINGS.statsYear,
           },
           session: null,
           initialized: true,
@@ -918,9 +926,12 @@ export const useRoutineStore = create<State>()(
             ...(backup.templates ?? []).filter((t) => !tplIds.has(t.id)),
           ];
           const gIds = new Set(s.goals.map((g) => g.id));
+          const fallbackYear = currentYear();
           const goals = [
             ...s.goals,
-            ...(backup.goals ?? []).filter((g) => !gIds.has(g.id)),
+            ...(backup.goals ?? [])
+              .filter((g) => !gIds.has(g.id))
+              .map((g) => normalizeGoal(g, fallbackYear)),
           ];
           return {
             habits,
@@ -973,12 +984,14 @@ export const useRoutineStore = create<State>()(
         const templates =
           p.templates ??
           (habits.length ? templatesFromHabits(habits) : defaultTemplates());
+        const fallbackYear = currentYear();
         const settings = {
           ...DEFAULT_SETTINGS,
           ...p.settings,
           theme: "dark" as const,
           dayParts: normalizeDayParts(p.settings?.dayParts),
           palette: normalizePalette(p.settings?.palette),
+          statsYear: p.settings?.statsYear ?? fallbackYear,
         };
         const dayPartSchedules =
           p.dayPartSchedules ?? schedulesFromParts(settings.dayParts);
@@ -997,7 +1010,9 @@ export const useRoutineStore = create<State>()(
           dayOverrides: p.dayOverrides ?? [],
           templates,
           dayPartSchedules,
-          goals: p.goals ?? current.goals,
+          goals: (p.goals ?? current.goals).map((g) =>
+            normalizeGoal(g, fallbackYear),
+          ),
           settings: {
             ...settings,
             dayParts: partsForDate(dayPartSchedules, todayKey(), settings.dayParts),

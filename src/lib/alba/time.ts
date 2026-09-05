@@ -1,6 +1,10 @@
 import { addDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
+export function currentYear(now = new Date()) {
+  return now.getFullYear();
+}
+
 export function pad2(n: number) {
   return String(n).padStart(2, "0");
 }

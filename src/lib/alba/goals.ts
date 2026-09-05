@@ -1,4 +1,3 @@
-import { dataStart } from "./day-score";
 import { isActiveOn } from "./schedule";
 import { isDoneCompletion } from "./stats";
 import { fromDateKey, shiftDateKey } from "./time";
@@ -7,9 +6,9 @@ import type {
   Habit,
   PassiveCheck,
   PassiveHabit,
-  StatsScope,
   YearGoal,
 } from "./types";
+import { yearRange } from "./year";
 
 export function nameKey(value: string) {
   return value
@@ -32,24 +31,20 @@ export function uniqueNames(items: { name: string }[]) {
   return names;
 }
 
-export function goalWindow(
-  scope: StatsScope,
-  today: string,
-  first: string,
-) {
-  const year = fromDateKey(today).getFullYear();
-  if (scope === "year") {
-    return {
-      start: `${year}-01-01`,
-      end: `${year}-12-31`,
-      years: 1,
-    };
-  }
-  const startYear = fromDateKey(first < today ? first : today).getFullYear();
+export function normalizeGoal(goal: YearGoal, fallbackYear: number): YearGoal {
+  const year =
+    Number.isInteger(goal.year) && goal.year >= 2000 && goal.year <= 2100
+      ? goal.year
+      : fallbackYear;
   return {
-    start: first < `${startYear}-01-01` ? first : `${startYear}-01-01`,
-    end: `${year}-12-31`,
-    years: Math.max(1, year - startYear + 1),
+    id: goal.id,
+    kind: goal.kind === "days" ? "days" : "hours",
+    name: goal.name.trim(),
+    year,
+    targetHours:
+      goal.kind === "hours"
+        ? Math.max(0.5, Number(goal.targetHours) || 1)
+        : undefined,
   };
 }
 
@@ -68,21 +63,9 @@ export function progressForGoal(
     passiveHabits: PassiveHabit[];
     passiveChecks: PassiveCheck[];
   },
-  scope: StatsScope,
   today: string,
 ): GoalProgress {
-  const first = dataStart(
-    {
-      habits: input.habits,
-      completions: input.completions,
-      passiveHabits: input.passiveHabits,
-      passiveChecks: input.passiveChecks,
-      todos: [],
-      dayOverrides: [],
-    },
-    today,
-  );
-  const window = goalWindow(scope, today, first);
+  const window = yearRange(goal.year, today);
   const key = nameKey(goal.name);
   if (goal.kind === "hours") {
     const ids = new Set(
@@ -92,15 +75,13 @@ export function progressForGoal(
     for (const c of input.completions) {
       if (!ids.has(c.habitId)) continue;
       if (!isDoneCompletion(c)) continue;
-      if (c.date < window.start || c.date > today) continue;
-      if (c.date > window.end) continue;
+      if (c.date < window.start || c.date > window.asOf) continue;
       minutes += c.durationMin;
     }
-    const target = Math.max(0, goal.targetHours ?? 0) * window.years;
     return {
       goal,
       done: minutes / 60,
-      total: target,
+      total: Math.max(0, goal.targetHours ?? 0),
       matched: ids.size > 0,
     };
   }
@@ -121,7 +102,7 @@ export function progressForGoal(
     );
     if (due) {
       scheduled += 1;
-      if (date <= today && checkDates.has(date)) done += 1;
+      if (date <= window.asOf && checkDates.has(date)) done += 1;
     }
     date = shiftDateKey(date, 1);
   }

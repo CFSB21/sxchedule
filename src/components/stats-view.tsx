@@ -9,6 +9,8 @@ import {
 } from "recharts";
 import { MonthCalendar } from "@/components/month-calendar";
 import { GoalsTracker } from "@/components/goals-tracker";
+import { TimeRanking } from "@/components/time-ranking";
+import { YearSelect, useStatsYear } from "@/components/year-select";
 import {
   bestStreak,
   consistency,
@@ -26,23 +28,27 @@ import {
   formatWeekday,
   fromDateKey,
   shiftDateKey,
-  todayKey,
 } from "@/lib/alba/time";
+import { yearRange } from "@/lib/alba/year";
 
 export function StatsView() {
   const habits = useRoutineStore((s) => s.habits);
   const completions = useRoutineStore((s) => s.completions);
-  const today = todayKey();
-  const weekStart = shiftDateKey(today, -6);
-  const monthStart = shiftDateKey(today, -29);
+  const { year, today } = useStatsYear();
+  const { start, asOf } = yearRange(year, today);
+  const asOfDate = fromDateKey(asOf);
+  const weekStart = shiftDateKey(asOf, -6);
+  const monthStart = shiftDateKey(asOf, -29);
+  const weekFrom = weekStart < start ? start : weekStart;
+  const monthFrom = monthStart < start ? start : monthStart;
 
-  const streak = currentStreak(habits, completions);
-  const best = bestStreak(habits, completions);
-  const rate30 = consistency(habits, completions, 30);
-  const weekMin = minutesInRange(completions, weekStart, today);
-  const monthMin = minutesInRange(completions, monthStart, today);
+  const streak = currentStreak(habits, completions, asOfDate);
+  const best = bestStreak(habits, completions, asOfDate);
+  const rate30 = consistency(habits, completions, 30, asOfDate);
+  const weekMin = minutesInRange(completions, weekFrom, asOf);
+  const monthMin = minutesInRange(completions, monthFrom, asOf);
 
-  const days = lastNDays(14);
+  const days = lastNDays(14, asOfDate);
   const chart = days.map((key) => {
     const d = fromDateKey(key);
     return {
@@ -52,7 +58,7 @@ export function StatsView() {
     };
   });
 
-  const perHabit = activeLineageRows(habits, completions, 30).filter(
+  const perHabit = activeLineageRows(habits, completions, 30, asOfDate).filter(
     (row) => row.habit,
   );
 
@@ -60,11 +66,14 @@ export function StatsView() {
     <div className="mx-auto w-full max-w-3xl">
       <div className="alba-enter text-center">
         <h1 className="font-display text-3xl tracking-tight">Estadísticas</h1>
+        <YearSelect className="mx-auto mt-3 max-w-56" />
       </div>
 
-      <MonthCalendar />
+      <MonthCalendar key={year} />
 
       <GoalsTracker />
+
+      <TimeRanking />
 
       <section className="alba-enter alba-enter-3 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Racha" value={`${streak}`} hint={`Mejor ${best}`} />
@@ -111,7 +120,7 @@ export function StatsView() {
               <Tooltip
                 cursor={{ fill: "var(--color-secondary)" }}
                 content={({ active, payload }) => {
-                  if (!active || !payload?.[0]) return null;
+                  if (!active || payload?.[0] == null) return null;
                   const row = payload[0].payload as (typeof chart)[number];
                   return (
                     <div className="rounded-md bg-popover px-3 py-2 text-sm shadow-(--shadow-border)">

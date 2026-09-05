@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useStatsYear } from "@/components/year-select";
 import {
   monthCells,
   monthScores,
@@ -16,21 +17,14 @@ import {
 } from "@/lib/alba/time";
 import { cn } from "@/lib/utils";
 
-const MONTHS_BACK = 24;
-const MONTHS_FWD = 12;
-
 type MonthRef = { year: number; month: number };
-
-function monthsAround(center: MonthRef): MonthRef[] {
-  const origin = center.year * 12 + center.month;
-  return Array.from({ length: MONTHS_BACK + MONTHS_FWD + 1 }, (_, i) => {
-    const value = origin - MONTHS_BACK + i;
-    return { year: Math.floor(value / 12), month: value % 12 };
-  });
-}
 
 function sameMonth(a: MonthRef, b: MonthRef) {
   return a.year === b.year && a.month === b.month;
+}
+
+function monthsOf(year: number): MonthRef[] {
+  return Array.from({ length: 12 }, (_, month) => ({ year, month }));
 }
 
 export function MonthCalendar() {
@@ -40,15 +34,20 @@ export function MonthCalendar() {
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
   const todos = useRoutineStore((s) => s.todos);
   const dayOverrides = useRoutineStore((s) => s.dayOverrides);
+  const { year } = useStatsYear();
   const today = todayKey();
   const todayDate = fromDateKey(today);
-  const current: MonthRef = {
-    year: todayDate.getFullYear(),
-    month: todayDate.getMonth(),
-  };
-  const months = useMemo(() => monthsAround(current), [current.year, current.month]);
-  const [active, setActive] = useState<MonthRef>(current);
-  const [selected, setSelected] = useState(today);
+  const todayYear = todayDate.getFullYear();
+  const todayMonth = todayDate.getMonth();
+  const months = useMemo(() => monthsOf(year), [year]);
+  const initialMonth = year === todayYear ? todayMonth : 11;
+  const [active, setActive] = useState<MonthRef>({
+    year,
+    month: initialMonth,
+  });
+  const [selected, setSelected] = useState(
+    year === todayYear ? today : `${year}-01-01`,
+  );
   const scroller = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
 
@@ -94,21 +93,19 @@ export function MonthCalendar() {
   }
 
   function shiftMonth(delta: number) {
-    const value = active.year * 12 + active.month + delta;
-    scrollToMonth(
-      { year: Math.floor(value / 12), month: value % 12 },
-      true,
-    );
+    const value = active.month + delta;
+    if (value < 0 || value > 11) return;
+    scrollToMonth({ year, month: value }, true);
   }
 
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const idx = months.findIndex((m) => sameMonth(m, current));
+    const idx = months.findIndex((m) => m.month === initialMonth);
     if (idx < 0) return;
     el.scrollLeft = idx * el.clientWidth;
     ready.current = true;
-  }, [current.year, current.month, months]);
+  }, [initialMonth, months]);
 
   useEffect(() => {
     function align() {
@@ -130,8 +127,8 @@ export function MonthCalendar() {
     if (next && !sameMonth(next, active)) setActive(next);
   }
 
-  const canPrev = !sameMonth(active, months[0]!);
-  const canNext = !sameMonth(active, months[months.length - 1]!);
+  const canPrev = active.month > 0;
+  const canNext = active.month < 11;
   const heading = formatMonthYear(new Date(active.year, active.month, 1));
   const selectedScore = scores.get(selected);
 

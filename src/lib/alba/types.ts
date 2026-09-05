@@ -1,4 +1,5 @@
 import type { Palette } from "./palette";
+import { currentYear } from "./time";
 
 export type DayPart = "morning" | "afternoon" | "evening";
 
@@ -61,14 +62,13 @@ export type Session = {
 
 export type ThemeMode = "light" | "dark";
 
-export type StatsScope = "year" | "all";
-
 export type YearGoalKind = "hours" | "days";
 
 export type YearGoal = {
   id: string;
   kind: YearGoalKind;
   name: string;
+  year: number;
   targetHours?: number;
 };
 
@@ -92,7 +92,7 @@ export type Settings = {
   theme: ThemeMode;
   dayParts: DayPartConfig[];
   palette?: Palette;
-  statsScope?: StatsScope;
+  statsYear?: number;
 };
 
 export type PassiveHabit = {
@@ -183,5 +183,5 @@ export const DEFAULT_SETTINGS: Settings = {
   minutesBefore: 5,
   theme: "dark",
   dayParts: DEFAULT_DAY_PARTS.map((p) => ({ ...p })),
-  statsScope: "year",
+  statsYear: currentYear(),
 };
