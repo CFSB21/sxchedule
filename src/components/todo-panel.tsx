@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { Check, ChevronDown, ChevronRight, ListTree, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ListTree,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { SidePanel } from "@/components/side-panel";
 import { Button } from "@/components/ui/button";
@@ -14,7 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLongPress } from "@/lib/alba/long-press";
 import { useRoutineStore } from "@/lib/alba/store";
-import { childrenOf, isGroup, rootsOnDate } from "@/lib/alba/todos";
+import {
+  childrenOf,
+  isGroup,
+  listComplete,
+  rootsOnDate,
+} from "@/lib/alba/todos";
 import { formatLongDate, fromDateKey } from "@/lib/alba/time";
 import type { TodoItem, TodoKind } from "@/lib/alba/types";
 import { cn } from "@/lib/utils";
@@ -38,6 +50,7 @@ export function TodoPanel({
   const toggleTodo = useRoutineStore((s) => s.toggleTodo);
   const updateTodo = useRoutineStore((s) => s.updateTodo);
   const deleteTodo = useRoutineStore((s) => s.deleteTodo);
+  const moveTodo = useRoutineStore((s) => s.moveTodo);
   const [adding, setAdding] = useState<AddMode>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<TodoItem | null>(null);
@@ -90,53 +103,66 @@ export function TodoPanel({
         </p>
       ) : (
         <ul className="space-y-2">
-          {roots.map((item) => {
+          {roots.map((item, index) => {
             const kids = childrenOf(dayTodos, item.id);
             const expanded = openGroups[item.id] ?? true;
+            const done = isGroup(item)
+              ? listComplete(dayTodos, item.id)
+              : item.done;
             return (
               <li key={item.id} className="space-y-1.5">
-                <TodoRow
-                  item={item}
-                  group={isGroup(item)}
-                  expanded={expanded}
-                  onToggle={() => toggleTodo(item.id)}
-                  onExpand={
-                    isGroup(item)
-                      ? () =>
-                          setOpenGroups((g) => ({
-                            ...g,
-                            [item.id]: !expanded,
-                          }))
-                      : undefined
-                  }
-                  onAddChild={
-                    isGroup(item)
-                      ? () =>
-                          openAdd({
-                            step: "name",
-                            kind: "task",
-                            parentId: item.id,
-                          })
-                      : undefined
-                  }
-                  onEdit={() => {
-                    setEditing(item);
-                    setEditTitle(item.title);
-                  }}
-                />
+                {isGroup(item) ? (
+                  <ListHeader
+                    item={item}
+                    done={done}
+                    expanded={expanded}
+                    canUp={index > 0}
+                    canDown={index < roots.length - 1}
+                    onExpand={() =>
+                      setOpenGroups((g) => ({ ...g, [item.id]: !expanded }))
+                    }
+                    onAdd={() =>
+                      openAdd({
+                        step: "name",
+                        kind: "task",
+                        parentId: item.id,
+                      })
+                    }
+                    onMove={(dir) => moveTodo(item.id, dir)}
+                    onEdit={() => {
+                      setEditing(item);
+                      setEditTitle(item.title);
+                    }}
+                  />
+                ) : (
+                  <TaskRow
+                    item={item}
+                    canUp={index > 0}
+                    canDown={index < roots.length - 1}
+                    onToggle={() => toggleTodo(item.id)}
+                    onMove={(dir) => moveTodo(item.id, dir)}
+                    onEdit={() => {
+                      setEditing(item);
+                      setEditTitle(item.title);
+                    }}
+                  />
+                )}
                 {isGroup(item) && expanded ? (
-                  <ul className="ml-4 space-y-1.5 border-l border-border pl-3">
+                  <ul className="ml-3 space-y-1.5 border-l border-border pl-3">
                     {kids.length === 0 ? (
                       <li className="px-2 py-1 text-xs text-muted-foreground">
                         Sin tareas dentro
                       </li>
                     ) : (
-                      kids.map((child) => (
-                        <TodoRow
+                      kids.map((child, childIndex) => (
+                        <TaskRow
                           key={child.id}
                           item={child}
                           nested
+                          canUp={childIndex > 0}
+                          canDown={childIndex < kids.length - 1}
                           onToggle={() => toggleTodo(child.id)}
+                          onMove={(dir) => moveTodo(child.id, dir)}
                           onEdit={() => {
                             setEditing(child);
                             setEditTitle(child.title);
@@ -164,7 +190,7 @@ export function TodoPanel({
               <DialogHeader>
                 <DialogTitle>Añadir</DialogTitle>
                 <DialogDescription>
-                  Una tarea suelta o una mayor con lista dentro.
+                  Una tarea suelta o una lista con tareas dentro.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-2">
@@ -179,7 +205,7 @@ export function TodoPanel({
                   onClick={() => openAdd({ step: "name", kind: "group" })}
                 >
                   <ListTree className="size-4" />
-                  Tarea mayor
+                  Lista
                 </Button>
               </div>
             </>
@@ -188,7 +214,7 @@ export function TodoPanel({
               <DialogHeader>
                 <DialogTitle>
                   {adding?.kind === "group"
-                    ? "Tarea mayor"
+                    ? "Lista"
                     : adding?.parentId
                       ? "Tarea de la lista"
                       : "Tarea"}
@@ -225,7 +251,7 @@ export function TodoPanel({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editing && isGroup(editing) ? "Editar tarea mayor" : "Editar tarea"}
+              {editing && isGroup(editing) ? "Editar lista" : "Editar tarea"}
             </DialogTitle>
             <DialogDescription>Solo para este día.</DialogDescription>
           </DialogHeader>
@@ -236,7 +262,9 @@ export function TodoPanel({
               if (!editing) return;
               updateTodo(editing.id, editTitle);
               setEditing(null);
-              toast.success("Tarea actualizada");
+              toast.success(
+                isGroup(editing) ? "Lista actualizada" : "Tarea actualizada",
+              );
             }}
           >
             <div className="grid gap-2">
@@ -259,7 +287,9 @@ export function TodoPanel({
                 if (!editing) return;
                 deleteTodo(editing.id);
                 setEditing(null);
-                toast.success("Tarea eliminada");
+                toast.success(
+                  isGroup(editing) ? "Lista eliminada" : "Tarea eliminada",
+                );
               }}
             >
               Eliminar
@@ -271,23 +301,82 @@ export function TodoPanel({
   );
 }
 
-function TodoRow({
+function ListHeader({
   item,
-  group,
-  nested,
+  done,
   expanded,
-  onToggle,
+  canUp,
+  canDown,
   onExpand,
-  onAddChild,
+  onAdd,
+  onMove,
   onEdit,
 }: {
   item: TodoItem;
-  group?: boolean;
+  done: boolean;
+  expanded: boolean;
+  canUp: boolean;
+  canDown: boolean;
+  onExpand: () => void;
+  onAdd: () => void;
+  onMove: (direction: -1 | 1) => void;
+  onEdit: () => void;
+}) {
+  const lp = useLongPress(onEdit);
+  return (
+    <div
+      {...lp}
+      className="flex select-none items-center gap-1 rounded-lg bg-secondary/70 px-1 py-1"
+    >
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Ocultar lista" : "Mostrar lista"}
+        className="grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        {expanded ? (
+          <ChevronDown className="size-4" />
+        ) : (
+          <ChevronRight className="size-4" />
+        )}
+      </button>
+      <p
+        className={cn(
+          "min-w-0 flex-1 py-2 text-sm font-medium leading-snug",
+          done && "text-muted-foreground line-through",
+        )}
+      >
+        {item.title}
+      </p>
+      <MoveButtons canUp={canUp} canDown={canDown} onMove={onMove} />
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label={`Añadir tarea a ${item.title}`}
+        className="grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Plus className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function TaskRow({
+  item,
+  nested,
+  canUp,
+  canDown,
+  onToggle,
+  onMove,
+  onEdit,
+}: {
+  item: TodoItem;
   nested?: boolean;
-  expanded?: boolean;
+  canUp: boolean;
+  canDown: boolean;
   onToggle: () => void;
-  onExpand?: () => void;
-  onAddChild?: () => void;
+  onMove: (direction: -1 | 1) => void;
   onEdit: () => void;
 }) {
   const lp = useLongPress(onEdit);
@@ -295,25 +384,10 @@ function TodoRow({
     <div
       {...lp}
       className={cn(
-        "flex select-none items-start gap-2 rounded-lg bg-secondary/70 px-2 py-2",
+        "flex select-none items-center gap-2 rounded-lg bg-secondary/70 px-2 py-1.5",
         nested && "bg-secondary/40",
       )}
     >
-      {group ? (
-        <button
-          type="button"
-          onClick={onExpand}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Ocultar lista" : "Mostrar lista"}
-          className="mt-0.5 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          {expanded ? (
-            <ChevronDown className="size-4" />
-          ) : (
-            <ChevronRight className="size-4" />
-          )}
-        </button>
-      ) : null}
       <button
         type="button"
         onClick={onToggle}
@@ -336,22 +410,46 @@ function TodoRow({
       </button>
       <p
         className={cn(
-          "min-w-0 flex-1 py-2.5 text-sm font-medium break-words",
+          "min-w-0 flex-1 py-2 text-sm font-medium leading-snug",
           item.done && "text-muted-foreground line-through",
         )}
       >
         {item.title}
       </p>
-      {onAddChild ? (
-        <button
-          type="button"
-          onClick={onAddChild}
-          aria-label={`Añadir tarea a ${item.title}`}
-          className="mt-0.5 grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Plus className="size-4" />
-        </button>
-      ) : null}
+      <MoveButtons canUp={canUp} canDown={canDown} onMove={onMove} />
+    </div>
+  );
+}
+
+function MoveButtons({
+  canUp,
+  canDown,
+  onMove,
+}: {
+  canUp: boolean;
+  canDown: boolean;
+  onMove: (direction: -1 | 1) => void;
+}) {
+  return (
+    <div className="flex shrink-0 flex-col">
+      <button
+        type="button"
+        aria-label="Subir"
+        disabled={!canUp}
+        onClick={() => onMove(-1)}
+        className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+      >
+        <ChevronUp className="size-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Bajar"
+        disabled={!canDown}
+        onClick={() => onMove(1)}
+        className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+      >
+        <ChevronDown className="size-4" />
+      </button>
     </div>
   );
 }

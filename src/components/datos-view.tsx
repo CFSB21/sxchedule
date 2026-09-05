@@ -1,7 +1,14 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Download, Palette, Smartphone, Trash2, Upload } from "lucide-react";
+import { Bell, ChevronRight, Download, Palette, Smartphone, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { downloadBackup, readBackupFile } from "@/lib/alba/backup";
 import {
   isNativeApp,
@@ -291,6 +298,7 @@ function AppearanceCard({
   onChange: (palette: AppPalette) => void;
   onReset: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const current = { ...DEFAULT_PALETTE, ...palette };
 
   function setKey(key: keyof AppPalette, value: string) {
@@ -299,51 +307,68 @@ function AppearanceCard({
   }
 
   return (
-    <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="alba-enter alba-enter-1 mt-6 flex w-full items-center gap-3 rounded-xl bg-card p-5 text-left shadow-(--shadow-border) transition-colors hover:bg-accent/40"
+      >
+        <div className="grid size-11 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+          <Palette className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
           <h2 className="font-medium">Apariencia</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Colores de la app. El contraste del texto sobre el principal se
-            calcula solo.
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Colores de la app
           </p>
         </div>
-        <Palette className="size-5 text-primary" />
-      </div>
-      <ul className="mt-4 space-y-2">
-        {PALETTE_FIELDS.map((field) => (
-          <li
-            key={field.key}
-            className="flex items-center gap-3 rounded-lg bg-secondary px-3 py-2"
-          >
-            <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-md shadow-(--shadow-border)">
-              <span className="sr-only">{field.label}</span>
-              <input
-                type="color"
-                value={current[field.key]}
-                onChange={(e) => setKey(field.key, e.target.value)}
-                className="absolute -inset-2 size-[180%] cursor-pointer border-0 bg-transparent p-0"
-              />
-            </label>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{field.label}</p>
-              <input
-                value={current[field.key]}
-                onChange={(e) => {
-                  const next = e.target.value.trim();
-                  if (isHex(next)) setKey(field.key, next);
-                }}
-                spellCheck={false}
-                className="mt-0.5 w-full bg-transparent text-xs tabular-nums text-muted-foreground outline-none"
-                aria-label={`${field.label} hexadecimal`}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
-      <Button variant="outline" className="mt-4" onClick={onReset}>
-        Restablecer colores
-      </Button>
-    </section>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apariencia</DialogTitle>
+            <DialogDescription>
+              El contraste del texto sobre el principal se calcula solo.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2">
+            {PALETTE_FIELDS.map((field) => (
+              <li
+                key={field.key}
+                className="flex items-center gap-3 rounded-lg bg-secondary px-3 py-2"
+              >
+                <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-md shadow-(--shadow-border)">
+                  <span className="sr-only">{field.label}</span>
+                  <input
+                    type="color"
+                    value={current[field.key]}
+                    onChange={(e) => setKey(field.key, e.target.value)}
+                    className="absolute -inset-2 size-[180%] cursor-pointer border-0 bg-transparent p-0"
+                  />
+                </label>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{field.label}</p>
+                  <input
+                    value={current[field.key]}
+                    onChange={(e) => {
+                      const next = e.target.value.trim();
+                      if (isHex(next)) setKey(field.key, next);
+                    }}
+                    spellCheck={false}
+                    className="mt-0.5 w-full bg-transparent text-xs tabular-nums text-muted-foreground outline-none"
+                    aria-label={`${field.label} hexadecimal`}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <Button variant="outline" onClick={onReset}>
+            Restablecer colores
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -23,6 +23,7 @@ import { normalizePalette } from "./palette";
 import {
   childrenOf,
   isGroup,
+  moveAmong,
   nextOrder,
   normalizeTodo,
 } from "./todos";
@@ -127,6 +128,7 @@ type State = {
   toggleTodo: (id: string) => void;
   updateTodo: (id: string, title: string) => void;
   deleteTodo: (id: string) => void;
+  moveTodo: (id: string, direction: -1 | 1) => void;
   setDayOverride: (
     habitId: string,
     date: string,
@@ -558,18 +560,7 @@ export const useRoutineStore = create<State>()(
       toggleTodo: (id) =>
         set((s) => {
           const item = s.todos.find((t) => t.id === id);
-          if (!item) return s;
-          const kids = childrenOf(s.todos, id);
-          if (isGroup(item) && kids.length > 0) {
-            const nextDone = !kids.every((k) => k.done);
-            return {
-              todos: s.todos.map((t) => {
-                if (t.id === id || t.parentId === id)
-                  return { ...t, done: nextDone };
-                return t;
-              }),
-            };
-          }
+          if (!item || isGroup(item)) return s;
           const nextDone = !item.done;
           return {
             todos: s.todos.map((t) => {
@@ -601,6 +592,9 @@ export const useRoutineStore = create<State>()(
         set((s) => ({
           todos: s.todos.filter((t) => t.id !== id && t.parentId !== id),
         })),
+
+      moveTodo: (id, direction) =>
+        set((s) => ({ todos: moveAmong(s.todos, id, direction) })),
 
       setDayOverride: (habitId, date, patch) =>
         set((s) => {
