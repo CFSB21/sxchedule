@@ -8,6 +8,7 @@ import {
   YAxis,
 } from "recharts";
 import { MonthCalendar } from "@/components/month-calendar";
+import { GoalsTracker } from "@/components/goals-tracker";
 import {
   bestStreak,
   consistency,
@@ -63,7 +64,9 @@ export function StatsView() {
 
       <MonthCalendar />
 
-      <section className="alba-enter alba-enter-2 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <GoalsTracker />
+
+      <section className="alba-enter alba-enter-3 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Racha" value={`${streak}`} hint={`Mejor ${best}`} />
         <Kpi
           label="Consistencia"

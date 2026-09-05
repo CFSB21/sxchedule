@@ -45,6 +45,8 @@ import type {
   TemplateActivity,
   TodoItem,
   TodoKind,
+  YearGoal,
+  YearGoalKind,
 } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { fromDateKey, todayKey } from "./time";
@@ -86,6 +88,7 @@ type State = {
   dayOverrides: DayOverride[];
   templates: RoutineTemplate[];
   dayPartSchedules: DayPartSchedule[];
+  goals: YearGoal[];
   settings: Settings;
   initialized: boolean;
   session: Session | null;
@@ -129,6 +132,16 @@ type State = {
   updateTodo: (id: string, title: string) => void;
   deleteTodo: (id: string) => void;
   moveTodo: (id: string, direction: -1 | 1) => void;
+  addGoal: (draft: {
+    kind: YearGoalKind;
+    name: string;
+    targetHours?: number;
+  }) => void;
+  updateGoal: (
+    id: string,
+    draft: { kind: YearGoalKind; name: string; targetHours?: number },
+  ) => void;
+  deleteGoal: (id: string) => void;
   setDayOverride: (
     habitId: string,
     date: string,
@@ -191,6 +204,7 @@ export const useRoutineStore = create<State>()(
       dayOverrides: seed.dayOverrides,
       templates: seed.templates,
       dayPartSchedules: seed.dayPartSchedules,
+      goals: seed.goals,
       settings: DEFAULT_SETTINGS,
       initialized: true,
       session: null,
@@ -385,6 +399,7 @@ export const useRoutineStore = create<State>()(
           dayOverrides: [],
           templates: [],
           dayPartSchedules: defaultDayPartSchedules(),
+          goals: [],
           settings: DEFAULT_SETTINGS,
           session: null,
           initialized: true,
@@ -596,6 +611,46 @@ export const useRoutineStore = create<State>()(
       moveTodo: (id, direction) =>
         set((s) => ({ todos: moveAmong(s.todos, id, direction) })),
 
+      addGoal: (draft) =>
+        set((s) => {
+          const name = draft.name.trim();
+          if (!name) return s;
+          const goal: YearGoal = {
+            id: newId("g"),
+            kind: draft.kind === "days" ? "days" : "hours",
+            name,
+            targetHours:
+              draft.kind === "hours"
+                ? Math.max(0.5, Number(draft.targetHours) || 1)
+                : undefined,
+          };
+          return { goals: [...s.goals, goal] };
+        }),
+
+      updateGoal: (id, draft) =>
+        set((s) => {
+          const name = draft.name.trim();
+          if (!name) return s;
+          return {
+            goals: s.goals.map((g) =>
+              g.id === id
+                ? {
+                    ...g,
+                    kind: draft.kind === "days" ? "days" : "hours",
+                    name,
+                    targetHours:
+                      draft.kind === "hours"
+                        ? Math.max(0.5, Number(draft.targetHours) || 1)
+                        : undefined,
+                  }
+                : g,
+            ),
+          };
+        }),
+
+      deleteGoal: (id) =>
+        set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
+
       setDayOverride: (habitId, date, patch) =>
         set((s) => {
           const existing = overrideFor(s.dayOverrides, habitId, date);
@@ -780,6 +835,7 @@ export const useRoutineStore = create<State>()(
           dayOverrides: s.dayOverrides,
           templates: s.templates,
           dayPartSchedules: s.dayPartSchedules,
+          goals: s.goals,
           settings: {
             ...s.settings,
             theme: "dark",
@@ -808,6 +864,7 @@ export const useRoutineStore = create<State>()(
           dayPartSchedules:
             backup.dayPartSchedules ??
             schedulesFromParts(backup.settings?.dayParts),
+          goals: backup.goals ?? [],
           settings: {
             ...DEFAULT_SETTINGS,
             ...backup.settings,
@@ -860,6 +917,11 @@ export const useRoutineStore = create<State>()(
             ...s.templates,
             ...(backup.templates ?? []).filter((t) => !tplIds.has(t.id)),
           ];
+          const gIds = new Set(s.goals.map((g) => g.id));
+          const goals = [
+            ...s.goals,
+            ...(backup.goals ?? []).filter((g) => !gIds.has(g.id)),
+          ];
           return {
             habits,
             completions,
@@ -868,6 +930,7 @@ export const useRoutineStore = create<State>()(
             todos,
             dayOverrides,
             templates,
+            goals,
             initialized: true,
           };
         }),
@@ -885,6 +948,7 @@ export const useRoutineStore = create<State>()(
         dayOverrides: s.dayOverrides,
         templates: s.templates,
         dayPartSchedules: s.dayPartSchedules,
+        goals: s.goals,
         settings: s.settings,
         initialized: s.initialized,
       }),
@@ -899,6 +963,7 @@ export const useRoutineStore = create<State>()(
               dayOverrides?: DayOverride[];
               templates?: RoutineTemplate[];
               dayPartSchedules?: DayPartSchedule[];
+              goals?: YearGoal[];
               settings?: Settings;
               initialized?: boolean;
             }
@@ -932,6 +997,7 @@ export const useRoutineStore = create<State>()(
           dayOverrides: p.dayOverrides ?? [],
           templates,
           dayPartSchedules,
+          goals: p.goals ?? current.goals,
           settings: {
             ...settings,
             dayParts: partsForDate(dayPartSchedules, todayKey(), settings.dayParts),

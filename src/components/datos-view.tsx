@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, ChevronRight, Download, Palette, Smartphone, Trash2, Upload } from "lucide-react";
+import { BarChart3, Bell, ChevronRight, Download, Palette, Smartphone, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -113,6 +113,46 @@ export function DatosView() {
       />
 
       <section className="alba-enter alba-enter-2 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+        <div className="flex items-start gap-3">
+          <div className="grid size-11 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+            <BarChart3 className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-medium">Datos de Stats</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Las metas empiezan en 0 cada año, o suman todo el histórico.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => updateSettings({ statsScope: "year" })}
+            className={cn(
+              "h-11 rounded-md px-3 text-sm font-medium",
+              (settings.statsScope ?? "year") === "year"
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground",
+            )}
+          >
+            Año actual
+          </button>
+          <button
+            type="button"
+            onClick={() => updateSettings({ statsScope: "all" })}
+            className={cn(
+              "h-11 rounded-md px-3 text-sm font-medium",
+              settings.statsScope === "all"
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground",
+            )}
+          >
+            Todos los años
+          </button>
+        </div>
+      </section>
+
+      <section className="alba-enter alba-enter-3 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
         <h2 className="font-medium">Guardado</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           La rutina y el historial se guardan solos en este dispositivo. Un

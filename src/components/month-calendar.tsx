@@ -9,6 +9,7 @@ import {
 import { useRoutineStore } from "@/lib/alba/store";
 import {
   WEEK_LABELS_MON,
+  formatLongDate,
   formatMonthYear,
   fromDateKey,
   todayKey,
@@ -132,6 +133,7 @@ export function MonthCalendar() {
   const canPrev = !sameMonth(active, months[0]!);
   const canNext = !sameMonth(active, months[months.length - 1]!);
   const heading = formatMonthYear(new Date(active.year, active.month, 1));
+  const selectedScore = scores.get(selected);
 
   return (
     <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
@@ -176,6 +178,17 @@ export function MonthCalendar() {
           </div>
         ))}
       </div>
+
+      <p className="mt-5 text-center text-sm leading-snug">
+        <span className="block font-medium">
+          {formatLongDate(fromDateKey(selected))}
+        </span>
+        <span className="mt-0.5 block text-muted-foreground">
+          {selectedScore && selectedScore.total > 0
+            ? `${selectedScore.done}/${selectedScore.total} completadas`
+            : "—"}
+        </span>
+      </p>
     </section>
   );
 }

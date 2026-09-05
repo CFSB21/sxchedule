@@ -169,7 +169,18 @@ const backupSchema = z.object({
           dayFail: z.string().optional(),
         })
         .optional(),
+      statsScope: z.enum(["year", "all"]).optional(),
     })
+    .optional(),
+  goals: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        kind: z.enum(["hours", "days"]),
+        name: z.string().min(1).max(80),
+        targetHours: z.number().min(0).max(10000).optional(),
+      }),
+    )
     .optional(),
 });
 
@@ -194,12 +205,14 @@ export function parseBackup(input: unknown): AlbaBackup {
     dayOverrides: parsed.dayOverrides ?? [],
     templates: parsed.templates,
     dayPartSchedules: parsed.dayPartSchedules,
+    goals: parsed.goals ?? [],
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,
       theme: "dark",
       dayParts: normalizeDayParts(parsed.settings?.dayParts),
       palette: normalizePalette(parsed.settings?.palette),
+      statsScope: parsed.settings?.statsScope === "all" ? "all" : "year",
     },
   };
 }

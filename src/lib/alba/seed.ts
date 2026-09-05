@@ -10,6 +10,7 @@ import type {
   RoutineTemplate,
   TemplateActivity,
   TodoItem,
+  YearGoal,
 } from "./types";
 import { toDateKey } from "./time";
 
@@ -279,7 +280,35 @@ export function createSeed(now = new Date()) {
     dayOverrides,
     templates,
     dayPartSchedules,
+    goals: defaultGoals(),
   };
+}
+
+export function defaultGoals(): YearGoal[] {
+  return [
+    {
+      id: "g-train",
+      kind: "hours",
+      name: "Entrenamiento",
+      targetHours: 80,
+    },
+    {
+      id: "g-read",
+      kind: "hours",
+      name: "Lectura",
+      targetHours: 40,
+    },
+    {
+      id: "g-bed",
+      kind: "days",
+      name: "Hacer la cama",
+    },
+    {
+      id: "g-desk",
+      kind: "days",
+      name: "Escritorio en orden",
+    },
+  ];
 }
 
 const TODO_TITLES = [

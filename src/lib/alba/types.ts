@@ -61,6 +61,17 @@ export type Session = {
 
 export type ThemeMode = "light" | "dark";
 
+export type StatsScope = "year" | "all";
+
+export type YearGoalKind = "hours" | "days";
+
+export type YearGoal = {
+  id: string;
+  kind: YearGoalKind;
+  name: string;
+  targetHours?: number;
+};
+
 export type DayPartConfig = {
   id: DayPart;
   name: string;
@@ -81,6 +92,7 @@ export type Settings = {
   theme: ThemeMode;
   dayParts: DayPartConfig[];
   palette?: Palette;
+  statsScope?: StatsScope;
 };
 
 export type PassiveHabit = {
@@ -157,6 +169,7 @@ export type AlbaBackup = {
   dayOverrides?: DayOverride[];
   templates?: RoutineTemplate[];
   dayPartSchedules?: DayPartSchedule[];
+  goals?: YearGoal[];
 };
 
 export const DEFAULT_DAY_PARTS: DayPartConfig[] = [
@@ -170,4 +183,5 @@ export const DEFAULT_SETTINGS: Settings = {
   minutesBefore: 5,
   theme: "dark",
   dayParts: DEFAULT_DAY_PARTS.map((p) => ({ ...p })),
+  statsScope: "year",
 };
