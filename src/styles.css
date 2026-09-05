@@ -4,6 +4,7 @@
 @theme {
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --text-2xs: 0.625rem;
 
   --color-background: #121410;
   --color-foreground: #ece8e1;
@@ -31,6 +32,12 @@
   --color-heatmap-2: #5b7d6c;
   --color-heatmap-3: #8fa99a;
   --color-heatmap-4: #c5d1c9;
+  --color-day-ok: #6a9a78;
+  --color-day-ok-fg: #141612;
+  --color-day-warn: #c9a44a;
+  --color-day-warn-fg: #141612;
+  --color-day-fail: #c56b62;
+  --color-day-fail-fg: #141612;
   --color-overlay: rgb(0 0 0 / 0.62);
 
   --radius-xs: 4px;
@@ -146,4 +153,23 @@
   .alba-enter {
     animation: none;
   }
+}
+
+.alba-snap-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.alba-snap-x::-webkit-scrollbar {
+  display: none;
+}
+
+.alba-snap-page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }

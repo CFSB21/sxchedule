@@ -2,7 +2,7 @@
 
 Rutina diaria con Year Progress Bar, estadísticas, respaldos y avisos. Empaquetada para Android.
 
-**Versión 1.6**
+**Versión 1.7**
 
 ## Instalar en el teléfono
 

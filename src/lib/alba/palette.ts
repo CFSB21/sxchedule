@@ -115,6 +115,12 @@ const CSS_VARS = [
   "--color-heatmap-2",
   "--color-heatmap-3",
   "--color-heatmap-4",
+  "--color-day-ok",
+  "--color-day-ok-fg",
+  "--color-day-warn",
+  "--color-day-warn-fg",
+  "--color-day-fail",
+  "--color-day-fail-fg",
   "--background",
   "--foreground",
 ] as const;
@@ -154,4 +160,13 @@ export function applyPalette(palette?: Partial<Palette> | null) {
   set("--color-heatmap-2", mix(merged.secondary, merged.primary, 0.55));
   set("--color-heatmap-3", mix(merged.secondary, merged.primary, 0.78));
   set("--color-heatmap-4", mix(merged.primary, merged.foreground, 0.25));
+  const ok = mix(merged.primary, "#4e9a62", 0.7);
+  const warn = mix(merged.primary, "#d2a63a", 0.78);
+  const fail = mix(merged.primary, "#d2675c", 0.78);
+  set("--color-day-ok", ok);
+  set("--color-day-ok-fg", contrastOn(ok));
+  set("--color-day-warn", warn);
+  set("--color-day-warn-fg", contrastOn(warn));
+  set("--color-day-fail", fail);
+  set("--color-day-fail-fg", contrastOn(fail));
 }

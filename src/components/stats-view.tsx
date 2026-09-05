@@ -7,12 +7,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { YearCalendar } from "@/components/year-calendar";
 import {
   bestStreak,
   consistency,
   currentStreak,
   dayMinutes,
-  heatmapCells,
   lastNDays,
   minutesInRange,
   activeLineageRows,
@@ -27,16 +27,6 @@ import {
   shiftDateKey,
   todayKey,
 } from "@/lib/alba/time";
-import { cn } from "@/lib/utils";
-
-function heatClass(rate: number | null, future: boolean) {
-  if (future || rate === null) return "bg-heatmap-0/50";
-  if (rate <= 0) return "bg-heatmap-0";
-  if (rate < 0.34) return "bg-heatmap-1";
-  if (rate < 0.67) return "bg-heatmap-2";
-  if (rate < 1) return "bg-heatmap-3";
-  return "bg-heatmap-4";
-}
 
 export function StatsView() {
   const habits = useRoutineStore((s) => s.habits);
@@ -61,13 +51,6 @@ export function StatsView() {
     };
   });
 
-  const cells = heatmapCells(habits, completions, 16);
-  const weeks = 16;
-  const columns: (typeof cells)[] = [];
-  for (let w = 0; w < weeks; w++) {
-    columns.push(cells.slice(w * 7, w * 7 + 7));
-  }
-
   const perHabit = activeLineageRows(habits, completions, 30).filter(
     (row) => row.habit,
   );
@@ -77,11 +60,13 @@ export function StatsView() {
       <div className="alba-enter">
         <h1 className="font-display text-3xl tracking-tight">Estadísticas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Consistencia, tiempo y el rastro de tus días.
+          El año, marcado por cómo cerraste cada día.
         </p>
       </div>
 
-      <section className="alba-enter alba-enter-1 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <YearCalendar />
+
+      <section className="alba-enter alba-enter-2 mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Racha" value={`${streak}`} hint={`Mejor ${best}`} />
         <Kpi
           label="Consistencia"
@@ -98,48 +83,6 @@ export function StatsView() {
           value={formatMinutes(monthMin)}
           hint="Últimos 30 días"
         />
-      </section>
-
-      <section className="alba-enter alba-enter-2 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
-        <div className="mb-4 flex items-end justify-between">
-          <div>
-            <h2 className="font-medium">Calendario</h2>
-            <p className="text-xs text-muted-foreground">
-              16 semanas · el verde es un día completo
-            </p>
-          </div>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span>Menos</span>
-            <span className="size-2.5 rounded-xs bg-heatmap-0" />
-            <span className="size-2.5 rounded-xs bg-heatmap-1" />
-            <span className="size-2.5 rounded-xs bg-heatmap-2" />
-            <span className="size-2.5 rounded-xs bg-heatmap-3" />
-            <span className="size-2.5 rounded-xs bg-heatmap-4" />
-            <span>Más</span>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="inline-flex gap-1">
-            {columns.map((col, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                {col.map((cell) => (
-                  <div
-                    key={cell.date}
-                    title={`${cell.date}${
-                      cell.rate === null
-                        ? " · sin hábitos"
-                        : ` · ${Math.round(cell.rate * 100)}%`
-                    }`}
-                    className={cn(
-                      "size-3 rounded-xs sm:size-3.5 md:size-4",
-                      heatClass(cell.rate, cell.future),
-                    )}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section className="alba-enter alba-enter-3 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
