@@ -3,12 +3,13 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
   CalendarDays,
-  Database,
   Gauge,
   ListChecks,
+  Settings,
 } from "lucide-react";
 import { BrandMark } from "@/components/alba-mark";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { applyPalette } from "@/lib/alba/palette";
 import { rehydrateRoutineStore, useRoutineStore } from "@/lib/alba/store";
 import { currentStreak } from "@/lib/alba/stats";
 import { cn } from "@/lib/utils";
@@ -20,8 +21,16 @@ const NAV = [
   { to: "/hoy", label: "Hoy", short: "Hoy", icon: CalendarDays },
   { to: "/rutina", label: "Rutina", short: "Rutina", icon: ListChecks },
   { to: "/stats", label: "Estadísticas", short: "Stats", icon: BarChart3 },
-  { to: "/datos", label: "Datos", short: "Datos", icon: Database },
+  { to: "/datos", label: "Settings", short: "Settings", icon: Settings },
 ] as const;
+
+function PaletteHost() {
+  const palette = useRoutineStore((s) => s.settings.palette);
+  useEffect(() => {
+    applyPalette(palette);
+  }, [palette]);
+  return null;
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -88,6 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </main>
         <ReminderHost />
+        <PaletteHost />
         <SessionDock />
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden">
           <div className="grid grid-cols-5">

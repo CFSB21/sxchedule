@@ -4,7 +4,9 @@ import { Share } from "@capacitor/share";
 import { z } from "zod";
 import { APP_NAME } from "@/lib/brand";
 import { normalizeDayParts } from "./day-parts";
+import { normalizePalette } from "./palette";
 import { defaultPassiveHabits } from "./seed";
+import { normalizeTodo } from "./todos";
 import type { AlbaBackup, Habit, HabitIconId } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -95,6 +97,8 @@ const todoSchema = z.object({
   title: z.string().min(1).max(120),
   done: z.boolean(),
   order: z.number().int(),
+  kind: z.enum(["task", "group"]).optional(),
+  parentId: z.string().min(1).optional(),
 });
 
 const overrideSchema = z.object({
@@ -150,6 +154,18 @@ const backupSchema = z.object({
       minutesBefore: z.number().int().min(0).max(120),
       theme: z.enum(["light", "dark"]).optional(),
       dayParts: z.array(dayPartSchema).optional(),
+      palette: z
+        .object({
+          background: z.string().optional(),
+          foreground: z.string().optional(),
+          primary: z.string().optional(),
+          secondary: z.string().optional(),
+          card: z.string().optional(),
+          accent: z.string().optional(),
+          muted: z.string().optional(),
+          border: z.string().optional(),
+        })
+        .optional(),
     })
     .optional(),
 });
@@ -171,7 +187,7 @@ export function parseBackup(input: unknown): AlbaBackup {
     })),
     passiveHabits: parsed.passiveHabits ?? defaultPassiveHabits(),
     passiveChecks: parsed.passiveChecks ?? [],
-    todos: parsed.todos ?? [],
+    todos: (parsed.todos ?? []).map(normalizeTodo),
     dayOverrides: parsed.dayOverrides ?? [],
     templates: parsed.templates,
     dayPartSchedules: parsed.dayPartSchedules,
@@ -180,6 +196,7 @@ export function parseBackup(input: unknown): AlbaBackup {
       ...parsed.settings,
       theme: "dark",
       dayParts: normalizeDayParts(parsed.settings?.dayParts),
+      palette: normalizePalette(parsed.settings?.palette),
     },
   };
 }

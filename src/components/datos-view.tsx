@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Download, Smartphone, Trash2, Upload } from "lucide-react";
+import { Bell, Download, Palette, Smartphone, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadBackup, readBackupFile } from "@/lib/alba/backup";
 import {
@@ -9,6 +9,12 @@ import {
   showLocalNotice,
   upcomingReminders,
 } from "@/lib/alba/notifications";
+import {
+  DEFAULT_PALETTE,
+  PALETTE_FIELDS,
+  isHex,
+  type Palette as AppPalette,
+} from "@/lib/alba/palette";
 import { useRoutineStore } from "@/lib/alba/store";
 import { pad2, todayKey } from "@/lib/alba/time";
 import { APP_NAME, APP_VERSION } from "@/lib/brand";
@@ -87,13 +93,19 @@ export function DatosView() {
   return (
     <div className="mx-auto w-full max-w-2xl">
       <div className="alba-enter">
-        <h1 className="font-display text-3xl tracking-tight">Datos</h1>
+        <h1 className="font-display text-3xl tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Guardado automático, respaldos y avisos a la hora de cada hábito.
+          Colores, respaldos y avisos. Todo se guarda en este dispositivo.
         </p>
       </div>
 
-      <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+      <AppearanceCard
+        palette={settings.palette}
+        onChange={(palette) => updateSettings({ palette })}
+        onReset={() => updateSettings({ palette: undefined })}
+      />
+
+      <section className="alba-enter alba-enter-2 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
         <h2 className="font-medium">Guardado</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           La rutina y el historial se guardan solos en este dispositivo. Un
@@ -148,7 +160,7 @@ export function DatosView() {
         ) : null}
       </section>
 
-      <section className="alba-enter alba-enter-2 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+      <section className="alba-enter alba-enter-3 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-medium">Avisos</h2>
@@ -236,7 +248,7 @@ export function DatosView() {
         </div>
       </section>
 
-      <section className="alba-enter alba-enter-3 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+      <section className="alba-enter alba-enter-4 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-medium">Android</h2>
@@ -267,5 +279,71 @@ export function DatosView() {
         </p>
       </section>
     </div>
+  );
+}
+
+function AppearanceCard({
+  palette,
+  onChange,
+  onReset,
+}: {
+  palette?: AppPalette;
+  onChange: (palette: AppPalette) => void;
+  onReset: () => void;
+}) {
+  const current = { ...DEFAULT_PALETTE, ...palette };
+
+  function setKey(key: keyof AppPalette, value: string) {
+    if (!isHex(value)) return;
+    onChange({ ...current, [key]: value.toLowerCase() });
+  }
+
+  return (
+    <section className="alba-enter alba-enter-1 mt-6 rounded-xl bg-card p-5 shadow-(--shadow-border)">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-medium">Apariencia</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Colores de la app. El contraste del texto sobre el principal se
+            calcula solo.
+          </p>
+        </div>
+        <Palette className="size-5 text-primary" />
+      </div>
+      <ul className="mt-4 space-y-2">
+        {PALETTE_FIELDS.map((field) => (
+          <li
+            key={field.key}
+            className="flex items-center gap-3 rounded-lg bg-secondary px-3 py-2"
+          >
+            <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-md shadow-(--shadow-border)">
+              <span className="sr-only">{field.label}</span>
+              <input
+                type="color"
+                value={current[field.key]}
+                onChange={(e) => setKey(field.key, e.target.value)}
+                className="absolute -inset-2 size-[180%] cursor-pointer border-0 bg-transparent p-0"
+              />
+            </label>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{field.label}</p>
+              <input
+                value={current[field.key]}
+                onChange={(e) => {
+                  const next = e.target.value.trim();
+                  if (isHex(next)) setKey(field.key, next);
+                }}
+                spellCheck={false}
+                className="mt-0.5 w-full bg-transparent text-xs tabular-nums text-muted-foreground outline-none"
+                aria-label={`${field.label} hexadecimal`}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Button variant="outline" className="mt-4" onClick={onReset}>
+        Restablecer colores
+      </Button>
+    </section>
   );
 }

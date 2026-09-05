@@ -2,21 +2,22 @@
 
 Rutina diaria con Year Progress Bar, estadísticas, respaldos y avisos. Empaquetada para Android.
 
-**Versión 1.4**
+**Versión 1.5**
 
 ## Instalar en el teléfono
 
 1. Abre la [última versión](https://github.com/CFSB21/sxchedule/releases/latest).
 2. Descarga `Sxchedule.apk`.
 3. En Android permite instalar apps de origen desconocido y ábrela.
-4. En **Datos → Activar avisos** concede notificaciones (y alarmas, si el sistema las pide).
+4. En **Settings → Activar avisos** concede notificaciones (y alarmas, si el sistema las pide).
 
 Los avisos del APK usan alarmas del sistema: suenan aunque cierres la app.
 
-## Datos
+## Settings
 
 - Se guardan solos en el dispositivo.
-- **Datos → Exportar respaldo** descarga (o comparte) un JSON.
+- Colores de la app (texto, principal, secundario, fondo…).
+- **Exportar respaldo** descarga (o comparte) un JSON.
 - **Importar** reemplaza lo actual.
 - **Borrar todos los datos** deja la app vacía.
 

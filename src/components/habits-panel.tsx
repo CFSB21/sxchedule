@@ -127,7 +127,7 @@ function PassiveRow({
   return (
     <li
       {...lp}
-      className="flex select-none items-center gap-3 rounded-lg bg-secondary/70 px-2 py-2"
+      className="flex select-none items-start gap-3 rounded-lg bg-secondary/70 px-2 py-2"
     >
       <button
         type="button"
@@ -145,7 +145,7 @@ function PassiveRow({
       </button>
       <p
         className={cn(
-          "min-w-0 flex-1 truncate text-sm font-medium",
+          "min-w-0 flex-1 py-2.5 text-sm font-medium break-words",
           done && "text-muted-foreground line-through",
         )}
       >
@@ -212,7 +212,7 @@ function PassiveFormDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Hacer la cama…"
-              maxLength={48}
+              maxLength={80}
               required
             />
           </div>

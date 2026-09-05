@@ -1,3 +1,5 @@
+import type { Palette } from "./palette";
+
 export type DayPart = "morning" | "afternoon" | "evening";
 
 export type HabitIconId =
@@ -78,6 +80,7 @@ export type Settings = {
   minutesBefore: number;
   theme: ThemeMode;
   dayParts: DayPartConfig[];
+  palette?: Palette;
 };
 
 export type PassiveHabit = {
@@ -96,12 +99,16 @@ export type PassiveCheck = {
   date: string;
 };
 
+export type TodoKind = "task" | "group";
+
 export type TodoItem = {
   id: string;
   date: string;
   title: string;
   done: boolean;
   order: number;
+  kind?: TodoKind;
+  parentId?: string;
 };
 
 export type DayOverride = {

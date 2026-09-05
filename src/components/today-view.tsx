@@ -18,6 +18,7 @@ import {
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { useLongPress } from "@/lib/alba/long-press";
 import { duePassives } from "@/lib/alba/schedule";
+import { todoProgress } from "@/lib/alba/todos";
 import {
   dueWithOverrides,
   hasDayOverride,
@@ -89,8 +90,7 @@ export function TodayView({
   const customsDone = customsDue.filter((h) =>
     passiveChecks.some((c) => c.habitId === h.id && c.date === date),
   );
-  const dayTodos = todos.filter((t) => t.date === date);
-  const todosDone = dayTodos.filter((t) => t.done);
+  const { done: todosDone, total: todoTotal } = todoProgress(todos, date);
 
   const [editingPart, setEditingPart] = useState<DayPartConfig | null>(null);
   const [panel, setPanel] = useState<"habits" | "todos" | null>(null);
@@ -142,8 +142,8 @@ export function TodayView({
         routineTotal={due.length}
         customDone={customsDone.length}
         customTotal={customsDue.length}
-        todoDone={todosDone.length}
-        todoTotal={dayTodos.length}
+        todoDone={todosDone}
+        todoTotal={todoTotal}
         minutes={minutes}
         onOpenHabits={() => setPanel("habits")}
         onOpenTodos={() => setPanel("todos")}

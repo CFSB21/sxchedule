@@ -19,6 +19,13 @@ import {
   stampApplied,
   templatesFromHabits,
 } from "./schedule";
+import { normalizePalette } from "./palette";
+import {
+  childrenOf,
+  isGroup,
+  nextOrder,
+  normalizeTodo,
+} from "./todos";
 import type {
   AlbaBackup,
   Completion,
@@ -36,6 +43,7 @@ import type {
   Settings,
   TemplateActivity,
   TodoItem,
+  TodoKind,
 } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 import { fromDateKey, todayKey } from "./time";
@@ -111,7 +119,11 @@ type State = {
   updatePassiveHabit: (id: string, draft: PassiveDraft, date: string) => void;
   deletePassiveHabit: (id: string, date: string) => void;
   togglePassiveCheck: (habitId: string, date: string) => void;
-  addTodo: (date: string, title: string) => void;
+  addTodo: (
+    date: string,
+    title: string,
+    opts?: { kind?: TodoKind; parentId?: string },
+  ) => void;
   toggleTodo: (id: string) => void;
   updateTodo: (id: string, title: string) => void;
   deleteTodo: (id: string) => void;
@@ -383,6 +395,10 @@ export const useRoutineStore = create<State>()(
             ...patch,
             dayParts: normalizeDayParts(patch.dayParts ?? s.settings.dayParts),
             theme: "dark",
+            palette:
+              "palette" in patch
+                ? normalizePalette(patch.palette)
+                : s.settings.palette,
           },
         })),
 
@@ -515,28 +531,60 @@ export const useRoutineStore = create<State>()(
           };
         }),
 
-      addTodo: (date, title) =>
+      addTodo: (date, title, opts) =>
         set((s) => {
           const trimmed = title.trim();
           if (!trimmed) return s;
-          const same = s.todos.filter((t) => t.date === date);
-          const order = same.reduce((m, t) => Math.max(m, t.order), -1) + 1;
+          const parentId = opts?.parentId;
+          const kind: TodoKind =
+            opts?.kind === "group" && !parentId ? "group" : "task";
+          const siblings = s.todos.filter((t) =>
+            parentId
+              ? t.parentId === parentId
+              : t.date === date && !t.parentId,
+          );
           const item: TodoItem = {
             id: newId("td"),
             date,
             title: trimmed,
             done: false,
-            order,
+            order: nextOrder(siblings),
+            kind,
+            parentId,
           };
           return { todos: [...s.todos, item] };
         }),
 
       toggleTodo: (id) =>
-        set((s) => ({
-          todos: s.todos.map((t) =>
-            t.id === id ? { ...t, done: !t.done } : t,
-          ),
-        })),
+        set((s) => {
+          const item = s.todos.find((t) => t.id === id);
+          if (!item) return s;
+          const kids = childrenOf(s.todos, id);
+          if (isGroup(item) && kids.length > 0) {
+            const nextDone = !kids.every((k) => k.done);
+            return {
+              todos: s.todos.map((t) => {
+                if (t.id === id || t.parentId === id)
+                  return { ...t, done: nextDone };
+                return t;
+              }),
+            };
+          }
+          const nextDone = !item.done;
+          return {
+            todos: s.todos.map((t) => {
+              if (t.id === id) return { ...t, done: nextDone };
+              if (isGroup(t) && t.id === item.parentId) {
+                const siblings = childrenOf(s.todos, t.id);
+                const all = siblings.every((x) =>
+                  x.id === id ? nextDone : x.done,
+                );
+                return { ...t, done: all };
+              }
+              return t;
+            }),
+          };
+        }),
 
       updateTodo: (id, title) =>
         set((s) => {
@@ -550,7 +598,9 @@ export const useRoutineStore = create<State>()(
         }),
 
       deleteTodo: (id) =>
-        set((s) => ({ todos: s.todos.filter((t) => t.id !== id) })),
+        set((s) => ({
+          todos: s.todos.filter((t) => t.id !== id && t.parentId !== id),
+        })),
 
       setDayOverride: (habitId, date, patch) =>
         set((s) => {
@@ -756,7 +806,7 @@ export const useRoutineStore = create<State>()(
             normalizePassive,
           ),
           passiveChecks: backup.passiveChecks ?? [],
-          todos: backup.todos ?? [],
+          todos: (backup.todos ?? []).map(normalizeTodo),
           dayOverrides: backup.dayOverrides ?? [],
           templates:
             backup.templates ??
@@ -769,6 +819,7 @@ export const useRoutineStore = create<State>()(
             ...backup.settings,
             theme: "dark",
             dayParts: normalizeDayParts(backup.settings?.dayParts),
+            palette: normalizePalette(backup.settings?.palette),
           },
           session: null,
           initialized: true,
@@ -801,7 +852,9 @@ export const useRoutineStore = create<State>()(
           const tSeen = new Set(s.todos.map((t) => t.id));
           const todos = [
             ...s.todos,
-            ...(backup.todos ?? []).filter((t) => !tSeen.has(t.id)),
+            ...(backup.todos ?? [])
+              .filter((t) => !tSeen.has(t.id))
+              .map(normalizeTodo),
           ];
           const oSeen = new Set(s.dayOverrides.map((o) => o.id));
           const dayOverrides = [
@@ -866,6 +919,7 @@ export const useRoutineStore = create<State>()(
           ...p.settings,
           theme: "dark" as const,
           dayParts: normalizeDayParts(p.settings?.dayParts),
+          palette: normalizePalette(p.settings?.palette),
         };
         const dayPartSchedules =
           p.dayPartSchedules ?? schedulesFromParts(settings.dayParts);
@@ -880,7 +934,7 @@ export const useRoutineStore = create<State>()(
             normalizePassive,
           ),
           passiveChecks: p.passiveChecks ?? [],
-          todos: p.todos ?? [],
+          todos: (p.todos ?? []).map(normalizeTodo),
           dayOverrides: p.dayOverrides ?? [],
           templates,
           dayPartSchedules,
