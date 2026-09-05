@@ -14,8 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { useLongPress } from "@/lib/alba/long-press";
+import { duePassives } from "@/lib/alba/schedule";
 import { useRoutineStore } from "@/lib/alba/store";
-import { DAY_LABELS, DAY_NAMES, fromDateKey } from "@/lib/alba/time";
+import { DAY_LABELS, DAY_NAMES, formatLongDate, fromDateKey } from "@/lib/alba/time";
 import type { HabitIconId, PassiveHabit } from "@/lib/alba/types";
 import { cn } from "@/lib/utils";
 
@@ -35,10 +36,7 @@ export function HabitsPanel({
   const updatePassiveHabit = useRoutineStore((s) => s.updatePassiveHabit);
   const deletePassiveHabit = useRoutineStore((s) => s.deletePassiveHabit);
 
-  const dow = fromDateKey(date).getDay();
-  const due = [...passiveHabits]
-    .filter((h) => h.days.includes(dow))
-    .sort((a, b) => a.order - b.order);
+  const due = duePassives(passiveHabits, date);
 
   const [editing, setEditing] = useState<PassiveHabit | null>(null);
   const [creating, setCreating] = useState(false);
@@ -48,7 +46,7 @@ export function HabitsPanel({
       open={open}
       side="left"
       title="Hábitos"
-      subtitle="Costumbres de cada día"
+      subtitle={`Desde el ${formatLongDate(fromDateKey(date)).toLowerCase()}. El pasado no cambia.`}
       onClose={onClose}
     >
       {due.length === 0 ? (
@@ -93,17 +91,17 @@ export function HabitsPanel({
         }}
         onSave={(draft) => {
           if (editing) {
-            updatePassiveHabit(editing.id, draft);
+            updatePassiveHabit(editing.id, draft, date);
             toast.success("Hábito actualizado");
           } else {
-            addPassiveHabit(draft);
+            addPassiveHabit(draft, date);
             toast.success("Hábito añadido");
           }
         }}
         onDelete={
           editing
             ? () => {
-                deletePassiveHabit(editing.id);
+                deletePassiveHabit(editing.id, date);
                 toast.success("Hábito eliminado");
               }
             : undefined
@@ -203,7 +201,7 @@ function PassiveFormDialog({
         <DialogHeader>
           <DialogTitle>{habit ? "Editar hábito" : "Nuevo hábito"}</DialogTitle>
           <DialogDescription>
-            Costumbres pasivas, sin temporizador.
+            Se suma desde este día. Los días anteriores no se tocan.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4">

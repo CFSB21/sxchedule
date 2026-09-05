@@ -44,12 +44,18 @@ export function HabitFormDialog({
   habit,
   onSave,
   onDelete,
+  hideDays = false,
+  title,
+  description,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   habit: Habit | null;
   onSave: (draft: HabitDraft) => void;
   onDelete?: () => void;
+  hideDays?: boolean;
+  title?: string;
+  description?: string;
 }) {
   const dayParts = useRoutineStore((s) => s.settings.dayParts);
   const [draft, setDraft] = useState<HabitDraft>(EMPTY);
@@ -96,9 +102,11 @@ export function HabitFormDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{habit ? "Editar hábito" : "Nuevo hábito"}</DialogTitle>
+          <DialogTitle>
+            {title ?? (habit ? "Editar actividad" : "Nueva actividad")}
+          </DialogTitle>
           <DialogDescription>
-            Define cuándo y cuánto tiempo le dedicas.
+            {description ?? "Define cuándo y cuánto tiempo le dedicas."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-5">
@@ -239,6 +247,7 @@ export function HabitFormDialog({
             </label>
           ) : null}
 
+          {hideDays ? null : (
           <div className="grid gap-2">
             <Label>Días</Label>
             <div className="grid grid-cols-7 gap-1">
@@ -264,6 +273,7 @@ export function HabitFormDialog({
               })}
             </div>
           </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <Button type="submit" className="w-full">

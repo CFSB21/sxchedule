@@ -1,8 +1,18 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { createSeed, defaultPassiveHabits } from "./seed";
+import { createSeed, defaultPassiveHabits, defaultTemplates } from "./seed";
 import { normalizeDayParts } from "./day-parts";
 import { overrideFor } from "./overrides";
+import {
+  applyTemplateToHabits,
+  closeFrom,
+  isOpen,
+  normalizeHabit,
+  normalizePassive,
+  punchHole,
+  stampApplied,
+  templatesFromHabits,
+} from "./schedule";
 import type {
   AlbaBackup,
   Completion,
@@ -14,13 +24,15 @@ import type {
   HabitIconId,
   PassiveCheck,
   PassiveHabit,
+  RoutineTemplate,
   Session,
   Settings,
+  TemplateActivity,
   TodoItem,
 } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
-import { todayKey } from "./time";
-import { completionFor } from "./stats";
+import { fromDateKey, todayKey } from "./time";
+import { completionFor, completionForLineage } from "./stats";
 
 type HabitDraft = {
   name: string;
@@ -38,6 +50,15 @@ type PassiveDraft = {
   days: number[];
 };
 
+type ActivityDraft = {
+  name: string;
+  icon: HabitIconId;
+  durationMin: number;
+  dayPart: DayPart;
+  scheduledTime: string | null;
+  remind: boolean;
+};
+
 const seed = createSeed();
 
 type State = {
@@ -47,6 +68,7 @@ type State = {
   passiveChecks: PassiveCheck[];
   todos: TodoItem[];
   dayOverrides: DayOverride[];
+  templates: RoutineTemplate[];
   settings: Settings;
   initialized: boolean;
   session: Session | null;
@@ -72,9 +94,9 @@ type State = {
   restoreDemo: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   updateDayPart: (id: DayPart, patch: Partial<DayPartConfig>) => void;
-  addPassiveHabit: (draft: PassiveDraft) => void;
-  updatePassiveHabit: (id: string, draft: PassiveDraft) => void;
-  deletePassiveHabit: (id: string) => void;
+  addPassiveHabit: (draft: PassiveDraft, date: string) => void;
+  updatePassiveHabit: (id: string, draft: PassiveDraft, date: string) => void;
+  deletePassiveHabit: (id: string, date: string) => void;
   togglePassiveCheck: (habitId: string, date: string) => void;
   addTodo: (date: string, title: string) => void;
   toggleTodo: (id: string) => void;
@@ -86,6 +108,25 @@ type State = {
     patch: Partial<Omit<DayOverride, "id" | "habitId" | "date">>,
   ) => void;
   clearDayOverride: (habitId: string, date: string) => void;
+  addTemplate: (name?: string) => string;
+  updateTemplate: (
+    id: string,
+    patch: Partial<Pick<RoutineTemplate, "name" | "days">>,
+  ) => void;
+  deleteTemplate: (id: string) => void;
+  addTemplateActivity: (templateId: string, draft: ActivityDraft) => void;
+  updateTemplateActivity: (
+    templateId: string,
+    activityId: string,
+    draft: ActivityDraft,
+  ) => void;
+  deleteTemplateActivity: (templateId: string, activityId: string) => void;
+  moveTemplateActivity: (
+    templateId: string,
+    activityId: string,
+    direction: -1 | 1,
+  ) => void;
+  applyTemplate: (id: string) => void;
   exportBackup: () => AlbaBackup;
   replaceFromBackup: (backup: AlbaBackup) => void;
   mergeFromBackup: (backup: AlbaBackup) => void;
@@ -104,6 +145,14 @@ function newId(prefix: string) {
 
 export { elapsedMs };
 
+function patchTemplate(
+  templates: RoutineTemplate[],
+  id: string,
+  fn: (t: RoutineTemplate) => RoutineTemplate,
+) {
+  return templates.map((t) => (t.id === id ? fn(t) : t));
+}
+
 export const useRoutineStore = create<State>()(
   persist(
     (set, get) => ({
@@ -113,6 +162,7 @@ export const useRoutineStore = create<State>()(
       passiveChecks: seed.passiveChecks,
       todos: seed.todos,
       dayOverrides: seed.dayOverrides,
+      templates: seed.templates,
       settings: DEFAULT_SETTINGS,
       initialized: true,
       session: null,
@@ -120,11 +170,15 @@ export const useRoutineStore = create<State>()(
       addHabit: (draft) =>
         set((s) => {
           const order = s.habits.reduce((m, h) => Math.max(m, h.order), -1) + 1;
+          const id = newId("h");
           const habit: Habit = {
-            id: newId("h"),
+            id,
+            lineageId: id,
             ...draft,
             name: draft.name.trim(),
             order,
+            activeFrom: todayKey(),
+            activeUntil: null,
           };
           return { habits: [...s.habits, habit] };
         }),
@@ -138,9 +192,9 @@ export const useRoutineStore = create<State>()(
 
       deleteHabit: (id) =>
         set((s) => ({
-          habits: s.habits.filter((h) => h.id !== id),
-          completions: s.completions.filter((c) => c.habitId !== id),
-          dayOverrides: s.dayOverrides.filter((o) => o.habitId !== id),
+          habits: s.habits.map((h) =>
+            h.id === id && isOpen(h) ? closeFrom(h, todayKey()) : h,
+          ),
           session: s.session?.habitId === id ? null : s.session,
         })),
 
@@ -149,7 +203,7 @@ export const useRoutineStore = create<State>()(
           const target = s.habits.find((h) => h.id === id);
           if (!target) return s;
           const group = s.habits
-            .filter((h) => h.dayPart === target.dayPart)
+            .filter((h) => h.dayPart === target.dayPart && isOpen(h))
             .sort((a, b) => a.order - b.order);
           const idx = group.findIndex((h) => h.id === id);
           const swap = group[idx + direction];
@@ -165,13 +219,15 @@ export const useRoutineStore = create<State>()(
 
       toggleComplete: (habitId, date) =>
         set((s) => {
-          const existing = completionFor(s.completions, habitId, date);
+          const habit = s.habits.find((h) => h.id === habitId);
+          const existing = habit
+            ? completionForLineage(s.completions, s.habits, habit, date)
+            : completionFor(s.completions, habitId, date);
           if (existing) {
             return {
               completions: s.completions.filter((c) => c.id !== existing.id),
             };
           }
-          const habit = s.habits.find((h) => h.id === habitId);
           const over = overrideFor(s.dayOverrides, habitId, date);
           const next: Completion = {
             id: `c-${date}-${habitId}`,
@@ -189,7 +245,9 @@ export const useRoutineStore = create<State>()(
           if (status === "failed" && !excuse?.trim()) return s;
           const habit = s.habits.find((h) => h.id === habitId);
           const over = overrideFor(s.dayOverrides, habitId, date);
-          const existing = completionFor(s.completions, habitId, date);
+          const existing = habit
+            ? completionForLineage(s.completions, s.habits, habit, date)
+            : completionFor(s.completions, habitId, date);
           const row: Completion = {
             id: existing?.id ?? `c-${date}-${habitId}`,
             habitId,
@@ -317,39 +375,81 @@ export const useRoutineStore = create<State>()(
           },
         })),
 
-      addPassiveHabit: (draft) =>
+      addPassiveHabit: (draft, date) =>
         set((s) => {
+          const today = todayKey();
+          const past = date < today;
           const order =
             s.passiveHabits.reduce((m, h) => Math.max(m, h.order), -1) + 1;
           const habit: PassiveHabit = {
             id: newId("p"),
             name: draft.name.trim(),
             icon: draft.icon,
-            days: draft.days,
+            days: past ? [fromDateKey(date).getDay()] : draft.days,
             order,
+            activeFrom: date,
+            activeUntil: past ? date : null,
           };
           return { passiveHabits: [...s.passiveHabits, habit] };
         }),
 
-      updatePassiveHabit: (id, draft) =>
-        set((s) => ({
-          passiveHabits: s.passiveHabits.map((h) =>
-            h.id === id
-              ? {
-                  ...h,
-                  name: draft.name.trim(),
-                  icon: draft.icon,
-                  days: draft.days,
-                }
-              : h,
-          ),
-        })),
+      updatePassiveHabit: (id, draft, date) =>
+        set((s) => {
+          const today = todayKey();
+          const from = date < today ? today : date;
+          const habit = s.passiveHabits.find((h) => h.id === id);
+          if (!habit) return s;
+          const start = habit.activeFrom ?? "0000-01-01";
+          if (isOpen(habit) && start >= from) {
+            return {
+              passiveHabits: s.passiveHabits.map((h) =>
+                h.id === id
+                  ? {
+                      ...h,
+                      name: draft.name.trim(),
+                      icon: draft.icon,
+                      days: draft.days,
+                    }
+                  : h,
+              ),
+            };
+          }
+          const next: PassiveHabit[] = [];
+          for (const h of s.passiveHabits) {
+            if (h.id !== id) {
+              next.push(h);
+              continue;
+            }
+            next.push(closeFrom(h, from));
+            next.push({
+              ...h,
+              id: newId("p"),
+              name: draft.name.trim(),
+              icon: draft.icon,
+              days: draft.days,
+              activeFrom: from,
+              activeUntil: null,
+            });
+          }
+          return { passiveHabits: next };
+        }),
 
-      deletePassiveHabit: (id) =>
-        set((s) => ({
-          passiveHabits: s.passiveHabits.filter((h) => h.id !== id),
-          passiveChecks: s.passiveChecks.filter((c) => c.habitId !== id),
-        })),
+      deletePassiveHabit: (id, date) =>
+        set((s) => {
+          const today = todayKey();
+          if (date < today) {
+            return {
+              passiveHabits: s.passiveHabits.flatMap((h) =>
+                h.id === id ? punchHole(h, date, () => newId("p")) : [h],
+              ),
+            };
+          }
+          return {
+            passiveHabits: s.passiveHabits.map((h) =>
+              h.id === id && isOpen(h) ? closeFrom(h, date) : h,
+            ),
+          };
+        }),
 
       togglePassiveCheck: (habitId, date) =>
         set((s) => {
@@ -430,6 +530,152 @@ export const useRoutineStore = create<State>()(
           ),
         })),
 
+      addTemplate: (name) => {
+        const id = newId("tpl");
+        set((s) => ({
+          templates: [
+            ...s.templates,
+            {
+              id,
+              name: (name ?? "Nueva plantilla").trim() || "Nueva plantilla",
+              days: [],
+              activities: [],
+            },
+          ],
+        }));
+        return id;
+      },
+
+      updateTemplate: (id, patch) =>
+        set((s) => ({
+          templates: s.templates.map((t) => {
+            if (t.id === id) {
+              const days = patch.days ?? t.days;
+              return {
+                ...t,
+                ...patch,
+                name: (patch.name ?? t.name).trim() || t.name,
+                days,
+              };
+            }
+            if (patch.days) {
+              return {
+                ...t,
+                days: t.days.filter((d) => !patch.days!.includes(d)),
+              };
+            }
+            return t;
+          }),
+        })),
+
+      deleteTemplate: (id) =>
+        set((s) => {
+          const today = todayKey();
+          const empty: RoutineTemplate = {
+            id,
+            name: "",
+            days: [],
+            activities: [],
+          };
+          return {
+            habits: applyTemplateToHabits(s.habits, empty, today, () =>
+              newId("h"),
+            ).filter((h) => h.templateId !== id || !isOpen(h)),
+            templates: s.templates.filter((t) => t.id !== id),
+          };
+        }),
+
+      addTemplateActivity: (templateId, draft) =>
+        set((s) => ({
+          templates: patchTemplate(s.templates, templateId, (t) => {
+            const order =
+              t.activities.reduce((m, a) => Math.max(m, a.order), -1) + 1;
+            const id = newId("ta");
+            const activity: TemplateActivity = {
+              id,
+              lineageId: id,
+              name: draft.name.trim(),
+              icon: draft.icon,
+              durationMin: draft.durationMin,
+              dayPart: draft.dayPart,
+              scheduledTime: draft.scheduledTime,
+              order,
+              remind: draft.remind,
+            };
+            return { ...t, activities: [...t.activities, activity] };
+          }),
+        })),
+
+      updateTemplateActivity: (templateId, activityId, draft) =>
+        set((s) => ({
+          templates: patchTemplate(s.templates, templateId, (t) => ({
+            ...t,
+            activities: t.activities.map((a) =>
+              a.id === activityId
+                ? {
+                    ...a,
+                    name: draft.name.trim(),
+                    icon: draft.icon,
+                    durationMin: draft.durationMin,
+                    dayPart: draft.dayPart,
+                    scheduledTime: draft.scheduledTime,
+                    remind: draft.remind,
+                  }
+                : a,
+            ),
+          })),
+        })),
+
+      deleteTemplateActivity: (templateId, activityId) =>
+        set((s) => ({
+          templates: patchTemplate(s.templates, templateId, (t) => ({
+            ...t,
+            activities: t.activities.filter((a) => a.id !== activityId),
+          })),
+        })),
+
+      moveTemplateActivity: (templateId, activityId, direction) =>
+        set((s) => ({
+          templates: patchTemplate(s.templates, templateId, (t) => {
+            const target = t.activities.find((a) => a.id === activityId);
+            if (!target) return t;
+            const group = t.activities
+              .filter((a) => a.dayPart === target.dayPart)
+              .sort((a, b) => a.order - b.order);
+            const idx = group.findIndex((a) => a.id === activityId);
+            const swap = group[idx + direction];
+            if (!swap) return t;
+            return {
+              ...t,
+              activities: t.activities.map((a) => {
+                if (a.id === target.id) return { ...a, order: swap.order };
+                if (a.id === swap.id) return { ...a, order: target.order };
+                return a;
+              }),
+            };
+          }),
+        })),
+
+      applyTemplate: (id) =>
+        set((s) => {
+          const template = s.templates.find((t) => t.id === id);
+          if (!template) return s;
+          const today = todayKey();
+          const claimed = new Set(template.days);
+          return {
+            habits: applyTemplateToHabits(
+              s.habits,
+              template,
+              today,
+              () => newId("h"),
+            ),
+            templates: s.templates.map((t) => {
+              if (t.id === id) return stampApplied(template);
+              return { ...t, days: t.days.filter((d) => !claimed.has(d)) };
+            }),
+          };
+        }),
+
       exportBackup: () => {
         const s = get();
         return {
@@ -442,6 +688,7 @@ export const useRoutineStore = create<State>()(
           passiveChecks: s.passiveChecks,
           todos: s.todos,
           dayOverrides: s.dayOverrides,
+          templates: s.templates,
           settings: {
             ...s.settings,
             theme: "dark",
@@ -452,12 +699,16 @@ export const useRoutineStore = create<State>()(
 
       replaceFromBackup: (backup) =>
         set({
-          habits: backup.habits,
+          habits: backup.habits.map(normalizeHabit),
           completions: backup.completions,
-          passiveHabits: backup.passiveHabits ?? defaultPassiveHabits(),
+          passiveHabits: (backup.passiveHabits ?? defaultPassiveHabits()).map(
+            normalizePassive,
+          ),
           passiveChecks: backup.passiveChecks ?? [],
           todos: backup.todos ?? [],
           dayOverrides: backup.dayOverrides ?? [],
+          templates:
+            backup.templates ?? templatesFromHabits(backup.habits.map(normalizeHabit)),
           settings: {
             ...DEFAULT_SETTINGS,
             ...backup.settings,
@@ -473,7 +724,7 @@ export const useRoutineStore = create<State>()(
           const ids = new Set(s.habits.map((h) => h.id));
           const habits = [
             ...s.habits,
-            ...backup.habits.filter((h) => !ids.has(h.id)),
+            ...backup.habits.filter((h) => !ids.has(h.id)).map(normalizeHabit),
           ];
           const seen = new Set(s.completions.map((c) => c.id));
           const completions = [
@@ -483,7 +734,9 @@ export const useRoutineStore = create<State>()(
           const pIds = new Set(s.passiveHabits.map((h) => h.id));
           const passiveHabits = [
             ...s.passiveHabits,
-            ...(backup.passiveHabits ?? []).filter((h) => !pIds.has(h.id)),
+            ...(backup.passiveHabits ?? [])
+              .filter((h) => !pIds.has(h.id))
+              .map(normalizePassive),
           ];
           const pcSeen = new Set(s.passiveChecks.map((c) => c.id));
           const passiveChecks = [
@@ -500,6 +753,11 @@ export const useRoutineStore = create<State>()(
             ...s.dayOverrides,
             ...(backup.dayOverrides ?? []).filter((o) => !oSeen.has(o.id)),
           ];
+          const tplIds = new Set(s.templates.map((t) => t.id));
+          const templates = [
+            ...s.templates,
+            ...(backup.templates ?? []).filter((t) => !tplIds.has(t.id)),
+          ];
           return {
             habits,
             completions,
@@ -507,6 +765,7 @@ export const useRoutineStore = create<State>()(
             passiveChecks,
             todos,
             dayOverrides,
+            templates,
             initialized: true,
           };
         }),
@@ -522,6 +781,7 @@ export const useRoutineStore = create<State>()(
         passiveChecks: s.passiveChecks,
         todos: s.todos,
         dayOverrides: s.dayOverrides,
+        templates: s.templates,
         settings: s.settings,
         initialized: s.initialized,
       }),
@@ -534,25 +794,30 @@ export const useRoutineStore = create<State>()(
               passiveChecks?: PassiveCheck[];
               todos?: TodoItem[];
               dayOverrides?: DayOverride[];
+              templates?: RoutineTemplate[];
               settings?: Settings;
               initialized?: boolean;
             }
           | undefined;
         if (!p || !p.initialized) return current;
+        const habits = (p.habits ?? current.habits).map(normalizeHabit);
+        const templates =
+          p.templates ??
+          (habits.length ? templatesFromHabits(habits) : defaultTemplates());
         return {
           ...current,
-          habits: (p.habits ?? current.habits).map((h) => ({
-            ...h,
-            remind: h.remind !== false,
-          })),
+          habits,
           completions: (p.completions ?? current.completions).map((c) => ({
             ...c,
             status: c.status === "failed" ? "failed" : "done",
           })),
-          passiveHabits: p.passiveHabits ?? defaultPassiveHabits(),
+          passiveHabits: (p.passiveHabits ?? defaultPassiveHabits()).map(
+            normalizePassive,
+          ),
           passiveChecks: p.passiveChecks ?? [],
           todos: p.todos ?? [],
           dayOverrides: p.dayOverrides ?? [],
+          templates,
           settings: {
             ...DEFAULT_SETTINGS,
             ...p.settings,

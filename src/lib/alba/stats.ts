@@ -1,14 +1,9 @@
+import { dueHabits, isActiveOn, lineageOf } from "./schedule";
 import type { Completion, Habit } from "./types";
 import { fromDateKey, shiftDateKey, toDateKey, todayKey } from "./time";
 
 export function habitsForDate(habits: Habit[], date: Date) {
-  const dow = date.getDay();
-  return habits
-    .filter((h) => h.days.includes(dow))
-    .sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
-      return (a.scheduledTime ?? "").localeCompare(b.scheduledTime ?? "");
-    });
+  return dueHabits(habits, date);
 }
 
 export function isFailedCompletion(c: Completion) {
@@ -47,6 +42,35 @@ export function completionFor(
   return completions.find((c) => c.habitId === habitId && c.date === date);
 }
 
+export function idsForLineage(habits: Habit[], habit: Habit) {
+  const lin = lineageOf(habit);
+  const ids = new Set<string>([habit.id, lin]);
+  for (const h of habits) {
+    if (lineageOf(h) === lin) ids.add(h.id);
+  }
+  return ids;
+}
+
+export function completionForLineage(
+  completions: Completion[],
+  habits: Habit[],
+  habit: Habit,
+  date: string,
+) {
+  const ids = idsForLineage(habits, habit);
+  return completions.find((c) => c.date === date && ids.has(c.habitId));
+}
+
+export function isCompleteLineage(
+  completions: Completion[],
+  habits: Habit[],
+  habit: Habit,
+  date: string,
+) {
+  const c = completionForLineage(completions, habits, habit, date);
+  return Boolean(c && isDoneCompletion(c));
+}
+
 export function dayRate(
   habits: Habit[],
   completions: Completion[],
@@ -54,7 +78,9 @@ export function dayRate(
 ) {
   const due = habitsForDate(habits, fromDateKey(dateKey));
   if (due.length === 0) return null;
-  const done = due.filter((h) => isComplete(completions, h.id, dateKey)).length;
+  const done = due.filter((h) =>
+    isCompleteLineage(completions, habits, h, dateKey),
+  ).length;
   return done / due.length;
 }
 
@@ -146,7 +172,9 @@ export function consistency(
     const key = toDateKey(date);
     const due = habitsForDate(habits, date);
     scheduled += due.length;
-    done += due.filter((h) => isComplete(completions, h.id, key)).length;
+    done += due.filter((h) =>
+      isCompleteLineage(completions, habits, h, key),
+    ).length;
   }
   if (scheduled === 0) return 0;
   return done / scheduled;
@@ -187,9 +215,10 @@ export function habitConsistency(
   for (let i = 0; i < days; i++) {
     const date = new Date(now);
     date.setDate(now.getDate() - i);
-    if (!habit.days.includes(date.getDay())) continue;
-    scheduled += 1;
     const key = toDateKey(date);
+    if (!habit.days.includes(date.getDay())) continue;
+    if (!isActiveOn(habit, key)) continue;
+    scheduled += 1;
     const c = completionFor(completions, habit.id, key);
     if (c && isDoneCompletion(c)) {
       done += 1;
@@ -202,6 +231,65 @@ export function habitConsistency(
     minutes,
     rate: scheduled === 0 ? 0 : done / scheduled,
   };
+}
+
+export function lineageConsistency(
+  habits: Habit[],
+  completions: Completion[],
+  lineageId: string,
+  days: number,
+  now = new Date(),
+) {
+  const versions = habits.filter((h) => lineageOf(h) === lineageId);
+  const display =
+    versions.find((h) => h.activeUntil == null) ?? versions[0] ?? null;
+  let scheduled = 0;
+  let done = 0;
+  let minutes = 0;
+  for (let i = 0; i < days; i++) {
+    const date = new Date(now);
+    date.setDate(now.getDate() - i);
+    const due = dueHabits(versions, date);
+    if (due.length === 0) continue;
+    scheduled += 1;
+    const key = toDateKey(date);
+    const hit = due.some((h) =>
+      isCompleteLineage(completions, habits, h, key),
+    );
+    if (hit) {
+      done += 1;
+      minutes += due.reduce((sum, h) => {
+        const c = completionForLineage(completions, habits, h, key);
+        return sum + (c && isDoneCompletion(c) ? c.durationMin : 0);
+      }, 0);
+    }
+  }
+  return {
+    habit: display,
+    scheduled,
+    done,
+    minutes,
+    rate: scheduled === 0 ? 0 : done / scheduled,
+  };
+}
+
+export function activeLineageRows(
+  habits: Habit[],
+  completions: Completion[],
+  days: number,
+) {
+  const seen = new Set<string>();
+  const rows: ReturnType<typeof lineageConsistency>[] = [];
+  const open = habits
+    .filter((h) => h.activeUntil == null)
+    .sort((a, b) => a.order - b.order);
+  for (const habit of open) {
+    const lin = lineageOf(habit);
+    if (seen.has(lin)) continue;
+    seen.add(lin);
+    rows.push(lineageConsistency(habits, completions, lin, days));
+  }
+  return rows;
 }
 
 export function heatmapCells(

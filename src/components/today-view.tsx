@@ -17,15 +17,16 @@ import {
 } from "@/lib/alba/habit-timer";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { useLongPress } from "@/lib/alba/long-press";
+import { duePassives } from "@/lib/alba/schedule";
 import {
   dueWithOverrides,
   hasDayOverride,
   overrideFor,
 } from "@/lib/alba/overrides";
 import {
-  completionFor,
+  completionForLineage,
   dayMinutes,
-  isComplete,
+  isCompleteLineage,
 } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 import {
@@ -72,7 +73,9 @@ export function TodayView({
   const today = now ? todayKey(now) : date;
   const isToday = Boolean(now) && date === today;
   const due = dueWithOverrides(habits, day, date, dayOverrides);
-  const done = due.filter((h) => isComplete(completions, h.id, date));
+  const done = due.filter((h) =>
+    isCompleteLineage(completions, habits, h, date),
+  );
   const minutes = dayMinutes(completions, date);
   const parts = settings.dayParts;
   const grouped = DAY_PART_ORDER.map((part) => ({
@@ -81,8 +84,7 @@ export function TodayView({
     items: due.filter((h) => resolvePartId(h, parts) === part),
   }));
 
-  const dow = day.getDay();
-  const customsDue = passiveHabits.filter((h) => h.days.includes(dow));
+  const customsDue = duePassives(passiveHabits, date);
   const customsDone = customsDue.filter((h) =>
     passiveChecks.some((c) => c.habitId === h.id && c.date === date),
   );
@@ -102,7 +104,12 @@ export function TodayView({
     if (!isToday || !now) return;
     for (const habit of due) {
       if (session?.habitId === habit.id) continue;
-      const completion = completionFor(completions, habit.id, date);
+      const completion = completionForLineage(
+        completions,
+        habits,
+        habit,
+        date,
+      );
       const phase = habitPhase(habit, date, completion, now, true);
       const prev = prevPhase.current[habit.id];
       prevPhase.current[habit.id] = phase;
@@ -158,9 +165,10 @@ export function TodayView({
               ) : (
                 <ul className="space-y-2">
                   {group.items.map((habit) => {
-                    const completion = completionFor(
+                    const completion = completionForLineage(
                       completions,
-                      habit.id,
+                      habits,
+                      habit,
                       date,
                     );
                     const phase = habitPhase(

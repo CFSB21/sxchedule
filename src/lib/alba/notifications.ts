@@ -1,7 +1,8 @@
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { APP_NAME } from "@/lib/brand";
-import { isComplete } from "./stats";
+import { isActiveOn } from "./schedule";
+import { isCompleteLineage } from "./stats";
 import { toDateKey } from "./time";
 import type { Completion, Habit, Settings } from "./types";
 
@@ -44,7 +45,8 @@ export function upcomingReminders(
     for (const habit of habits) {
       if (!habit.remind || !habit.scheduledTime) continue;
       if (!habit.days.includes(dow)) continue;
-      if (isComplete(completions, habit.id, key)) continue;
+      if (!isActiveOn(habit, key)) continue;
+      if (isCompleteLineage(completions, habits, habit, key)) continue;
       const [hh, mm] = habit.scheduledTime.split(":").map(Number);
       const at = new Date(day);
       at.setHours(hh ?? 0, (mm ?? 0) - settings.minutesBefore, 0, 0);

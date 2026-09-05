@@ -12,10 +12,10 @@ import {
   consistency,
   currentStreak,
   dayMinutes,
-  habitConsistency,
   heatmapCells,
   lastNDays,
   minutesInRange,
+  activeLineageRows,
 } from "@/lib/alba/stats";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { useRoutineStore } from "@/lib/alba/store";
@@ -68,9 +68,9 @@ export function StatsView() {
     columns.push(cells.slice(w * 7, w * 7 + 7));
   }
 
-  const perHabit = [...habits]
-    .sort((a, b) => a.order - b.order)
-    .map((h) => ({ habit: h, ...habitConsistency(h, completions, 30) }));
+  const perHabit = activeLineageRows(habits, completions, 30).filter(
+    (row) => row.habit,
+  );
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -202,10 +202,11 @@ export function StatsView() {
         ) : (
           <ul className="mt-4 divide-y divide-border">
             {perHabit.map(({ habit, rate, done, scheduled, minutes }) => {
+              if (!habit) return null;
               const Icon = HABIT_ICONS[habit.icon];
               return (
                 <li
-                  key={habit.id}
+                  key={habit.lineageId ?? habit.id}
                   className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-primary">

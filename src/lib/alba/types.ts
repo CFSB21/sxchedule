@@ -32,6 +32,10 @@ export type Habit = {
   days: number[];
   order: number;
   remind: boolean;
+  lineageId?: string;
+  templateId?: string;
+  activeFrom?: string;
+  activeUntil?: string | null;
 };
 
 export type CompletionStatus = "done" | "failed";
@@ -75,6 +79,8 @@ export type PassiveHabit = {
   icon: HabitIconId;
   days: number[];
   order: number;
+  activeFrom?: string;
+  activeUntil?: string | null;
 };
 
 export type PassiveCheck = {
@@ -101,6 +107,29 @@ export type DayOverride = {
   skipped?: boolean;
 };
 
+export type TemplateActivity = {
+  id: string;
+  lineageId?: string;
+  name: string;
+  icon: HabitIconId;
+  durationMin: number;
+  dayPart: DayPart;
+  scheduledTime: string | null;
+  order: number;
+  remind: boolean;
+};
+
+export type RoutineTemplate = {
+  id: string;
+  name: string;
+  days: number[];
+  activities: TemplateActivity[];
+  lastApplied?: {
+    days: number[];
+    activities: TemplateActivity[];
+  };
+};
+
 export type AlbaBackup = {
   version: 1;
   app: "alba" | "sxchedule";
@@ -112,6 +141,7 @@ export type AlbaBackup = {
   passiveChecks?: PassiveCheck[];
   todos?: TodoItem[];
   dayOverrides?: DayOverride[];
+  templates?: RoutineTemplate[];
 };
 
 export const DEFAULT_DAY_PARTS: DayPartConfig[] = [

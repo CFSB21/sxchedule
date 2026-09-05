@@ -1,9 +1,12 @@
+import { activityToHabit, stampApplied } from "./schedule";
 import type {
   Completion,
   DayOverride,
   Habit,
   PassiveCheck,
   PassiveHabit,
+  RoutineTemplate,
+  TemplateActivity,
   TodoItem,
 } from "./types";
 import { toDateKey } from "./time";
@@ -19,101 +22,78 @@ function hash01(input: string) {
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const WEEKDAYS = [1, 2, 3, 4, 5];
+const WEEKEND = [0, 6];
 
-export function defaultHabits(): Habit[] {
+function act(
+  id: string,
+  lineage: string,
+  name: string,
+  icon: TemplateActivity["icon"],
+  durationMin: number,
+  dayPart: TemplateActivity["dayPart"],
+  scheduledTime: string,
+  order: number,
+): TemplateActivity {
+  return {
+    id,
+    lineageId: lineage,
+    name,
+    icon,
+    durationMin,
+    dayPart,
+    scheduledTime,
+    order,
+    remind: true,
+  };
+}
+
+const WEEKDAY_ACTIVITIES: TemplateActivity[] = [
+  act("ta-wd-water", "lin-water", "Agua y estiramientos", "droplets", 10, "morning", "06:30", 0),
+  act("ta-wd-meditate", "lin-meditate", "Meditación", "brain", 12, "morning", "06:45", 1),
+  act("ta-wd-train", "lin-train", "Entrenamiento", "dumbbell", 40, "morning", "07:00", 2),
+  act("ta-wd-breakfast", "lin-breakfast", "Desayuno con calma", "coffee", 20, "morning", "07:50", 3),
+  act("ta-wd-deep", "lin-deep", "Bloque profundo", "focus", 90, "afternoon", "09:30", 4),
+  act("ta-wd-walk", "lin-walk", "Caminata", "walk", 20, "afternoon", "13:30", 5),
+  act("ta-wd-read", "lin-read", "Lectura", "book", 25, "evening", "21:00", 6),
+  act("ta-wd-journal", "lin-journal", "Diario", "pen", 10, "evening", "21:30", 7),
+];
+
+const WEEKEND_ACTIVITIES: TemplateActivity[] = [
+  act("ta-we-water", "lin-water", "Agua y estiramientos", "droplets", 10, "morning", "07:30", 0),
+  act("ta-we-meditate", "lin-meditate", "Meditación", "brain", 12, "morning", "07:45", 1),
+  act("ta-we-train", "lin-train", "Entrenamiento", "dumbbell", 40, "morning", "09:00", 2),
+  act("ta-we-breakfast", "lin-breakfast", "Desayuno con calma", "coffee", 20, "morning", "09:50", 3),
+  act("ta-we-walk", "lin-walk", "Caminata", "walk", 25, "afternoon", "12:00", 4),
+  act("ta-we-read", "lin-read", "Lectura", "book", 30, "evening", "21:00", 5),
+  act("ta-we-journal", "lin-journal", "Diario", "pen", 10, "evening", "21:40", 6),
+];
+
+export function defaultTemplates(): RoutineTemplate[] {
   return [
-    {
-      id: "h-water",
-      name: "Agua y estiramientos",
-      icon: "droplets",
-      durationMin: 10,
-      dayPart: "morning",
-      scheduledTime: "06:30",
-      days: ALL_DAYS,
-      order: 0,
-      remind: true,
-    },
-    {
-      id: "h-meditate",
-      name: "Meditación",
-      icon: "brain",
-      durationMin: 12,
-      dayPart: "morning",
-      scheduledTime: "06:45",
-      days: ALL_DAYS,
-      order: 1,
-      remind: true,
-    },
-    {
-      id: "h-train",
-      name: "Entrenamiento",
-      icon: "dumbbell",
-      durationMin: 40,
-      dayPart: "morning",
-      scheduledTime: "07:00",
-      days: [1, 2, 3, 4, 5, 6],
-      order: 2,
-      remind: true,
-    },
-    {
-      id: "h-breakfast",
-      name: "Desayuno con calma",
-      icon: "coffee",
-      durationMin: 20,
-      dayPart: "morning",
-      scheduledTime: "07:50",
-      days: ALL_DAYS,
-      order: 3,
-      remind: true,
-    },
-    {
-      id: "h-deep",
-      name: "Bloque profundo",
-      icon: "focus",
-      durationMin: 90,
-      dayPart: "afternoon",
-      scheduledTime: "09:30",
+    stampApplied({
+      id: "tpl-weekdays",
+      name: "Entre semana",
       days: WEEKDAYS,
-      order: 4,
-      remind: true,
-    },
-    {
-      id: "h-walk",
-      name: "Caminata",
-      icon: "walk",
-      durationMin: 20,
-      dayPart: "afternoon",
-      scheduledTime: "13:30",
-      days: ALL_DAYS,
-      order: 5,
-      remind: true,
-    },
-    {
-      id: "h-read",
-      name: "Lectura",
-      icon: "book",
-      durationMin: 25,
-      dayPart: "evening",
-      scheduledTime: "21:00",
-      days: ALL_DAYS,
-      order: 6,
-      remind: true,
-    },
-    {
-      id: "h-journal",
-      name: "Diario",
-      icon: "pen",
-      durationMin: 10,
-      dayPart: "evening",
-      scheduledTime: "21:30",
-      days: ALL_DAYS,
-      order: 7,
-      remind: true,
-    },
+      activities: WEEKDAY_ACTIVITIES,
+    }),
+    stampApplied({
+      id: "tpl-weekend",
+      name: "Fin de semana",
+      days: WEEKEND,
+      activities: WEEKEND_ACTIVITIES,
+    }),
   ];
 }
 
-export function defaultPassiveHabits(): PassiveHabit[] {
+export function defaultHabits(fromDate = "0000-01-01"): Habit[] {
+  return defaultTemplates().flatMap((template) =>
+    template.activities.map((activity) =>
+      activityToHabit(template, activity, fromDate, activity.id),
+    ),
+  );
+}
+
+export function defaultPassiveHabits(fromDate = "0000-01-01"): PassiveHabit[] {
   return [
     {
       id: "p-bed",
@@ -121,6 +101,8 @@ export function defaultPassiveHabits(): PassiveHabit[] {
       icon: "sun",
       days: ALL_DAYS,
       order: 0,
+      activeFrom: fromDate,
+      activeUntil: null,
     },
     {
       id: "p-vitamins",
@@ -128,6 +110,8 @@ export function defaultPassiveHabits(): PassiveHabit[] {
       icon: "leaf",
       days: ALL_DAYS,
       order: 1,
+      activeFrom: fromDate,
+      activeUntil: null,
     },
     {
       id: "p-phone",
@@ -135,6 +119,8 @@ export function defaultPassiveHabits(): PassiveHabit[] {
       icon: "moon",
       days: ALL_DAYS,
       order: 2,
+      activeFrom: fromDate,
+      activeUntil: null,
     },
     {
       id: "p-water",
@@ -142,6 +128,8 @@ export function defaultPassiveHabits(): PassiveHabit[] {
       icon: "droplets",
       days: ALL_DAYS,
       order: 3,
+      activeFrom: fromDate,
+      activeUntil: null,
     },
     {
       id: "p-desk",
@@ -149,28 +137,32 @@ export function defaultPassiveHabits(): PassiveHabit[] {
       icon: "laptop",
       days: WEEKDAYS,
       order: 4,
+      activeFrom: fromDate,
+      activeUntil: null,
     },
   ];
 }
 
-function missChance(habitId: string, dow: number) {
+function missChance(lineage: string, dow: number) {
   const weekend = dow === 0 || dow === 6;
   const base: Record<string, number> = {
-    "h-water": 0.08,
-    "h-meditate": 0.12,
-    "h-train": weekend ? 0.28 : 0.18,
-    "h-breakfast": 0.1,
-    "h-deep": 0.32,
-    "h-walk": 0.22,
-    "h-read": 0.16,
-    "h-journal": 0.2,
+    "lin-water": 0.08,
+    "lin-meditate": 0.12,
+    "lin-train": weekend ? 0.28 : 0.18,
+    "lin-breakfast": 0.1,
+    "lin-deep": 0.32,
+    "lin-walk": 0.22,
+    "lin-read": 0.16,
+    "lin-journal": 0.2,
   };
-  return base[habitId] ?? 0.2;
+  return base[lineage] ?? 0.2;
 }
 
 export function createSeed(now = new Date()) {
-  const habits = defaultHabits();
-  const passiveHabits = defaultPassiveHabits();
+  const fromDate = "2000-01-01";
+  const templates = defaultTemplates();
+  const habits = defaultHabits(fromDate);
+  const passiveHabits = defaultPassiveHabits(fromDate);
   const completions: Completion[] = [];
   const passiveChecks: PassiveCheck[] = [];
   const todos: TodoItem[] = [];
@@ -186,7 +178,8 @@ export function createSeed(now = new Date()) {
     for (const habit of habits) {
       if (!habit.days.includes(dow)) continue;
       const roll = hash01(`${key}:${habit.id}`);
-      const keep = forceComplete || roll > missChance(habit.id, dow);
+      const keep =
+        forceComplete || roll > missChance(habit.lineageId ?? habit.id, dow);
       if (!keep) continue;
       const variance = 0.86 + roll * 0.22;
       completions.push({
@@ -281,6 +274,7 @@ export function createSeed(now = new Date()) {
     passiveChecks,
     todos,
     dayOverrides,
+    templates,
   };
 }
 

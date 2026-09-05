@@ -31,6 +31,8 @@ const ICON_IDS = [
   "timer",
 ] as const satisfies readonly HabitIconId[];
 
+const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 const habitSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
@@ -41,6 +43,10 @@ const habitSchema = z.object({
   days: z.array(z.number().int().min(0).max(6)).min(1),
   order: z.number().int(),
   remind: z.boolean().optional(),
+  lineageId: z.string().min(1).optional(),
+  templateId: z.string().min(1).optional(),
+  activeFrom: dateKey.optional(),
+  activeUntil: dateKey.nullable().optional(),
 });
 
 const completionSchema = z.object({
@@ -60,14 +66,14 @@ const dayPartSchema = z.object({
   endMin: z.number().int().min(0).max(24 * 60),
 });
 
-const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-
 const passiveHabitSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
   icon: z.enum(ICON_IDS),
   days: z.array(z.number().int().min(0).max(6)).min(1),
   order: z.number().int(),
+  activeFrom: dateKey.optional(),
+  activeUntil: dateKey.nullable().optional(),
 });
 
 const passiveCheckSchema = z.object({
@@ -94,6 +100,31 @@ const overrideSchema = z.object({
   skipped: z.boolean().optional(),
 });
 
+const templateActivitySchema = z.object({
+  id: z.string().min(1),
+  lineageId: z.string().min(1).optional(),
+  name: z.string().min(1).max(80),
+  icon: z.enum(ICON_IDS),
+  durationMin: z.number().int().min(1).max(24 * 60),
+  dayPart: z.enum(["morning", "afternoon", "evening"]),
+  scheduledTime: z.string().nullable(),
+  order: z.number().int(),
+  remind: z.boolean(),
+});
+
+const templateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(80),
+  days: z.array(z.number().int().min(0).max(6)),
+  activities: z.array(templateActivitySchema),
+  lastApplied: z
+    .object({
+      days: z.array(z.number().int().min(0).max(6)),
+      activities: z.array(templateActivitySchema),
+    })
+    .optional(),
+});
+
 const backupSchema = z.object({
   version: z.literal(1),
   app: z.enum(["alba", "sxchedule"]),
@@ -104,6 +135,7 @@ const backupSchema = z.object({
   passiveChecks: z.array(passiveCheckSchema).optional(),
   todos: z.array(todoSchema).optional(),
   dayOverrides: z.array(overrideSchema).optional(),
+  templates: z.array(templateSchema).optional(),
   settings: z
     .object({
       notificationsEnabled: z.boolean(),
@@ -133,6 +165,7 @@ export function parseBackup(input: unknown): AlbaBackup {
     passiveChecks: parsed.passiveChecks ?? [],
     todos: parsed.todos ?? [],
     dayOverrides: parsed.dayOverrides ?? [],
+    templates: parsed.templates,
     settings: {
       ...DEFAULT_SETTINGS,
       ...parsed.settings,
