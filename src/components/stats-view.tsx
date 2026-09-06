@@ -3,7 +3,7 @@ import { GoalsTracker } from "@/components/goals-tracker";
 import { TimeRanking } from "@/components/time-ranking";
 import { HabitDays } from "@/components/habit-days";
 import { ExcuseList } from "@/components/excuse-list";
-import { YearSelect, useStatsYear } from "@/components/year-select";
+import { useStatsYear } from "@/components/year-select";
 import {
   bestStreak,
   consistency,
@@ -34,7 +34,6 @@ export function StatsView() {
     <div className="mx-auto w-full max-w-3xl">
       <div className="alba-enter text-center">
         <h1 className="font-display text-3xl tracking-tight">Estadísticas</h1>
-        <YearSelect className="mx-auto mt-3 max-w-md" />
       </div>
 
       <MonthCalendar key={`${scope}-${year}`} />

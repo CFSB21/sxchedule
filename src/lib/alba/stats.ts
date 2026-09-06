@@ -459,8 +459,6 @@ function streakWalk(
 }
 
 export function habitDayRanking(
-  habits: Habit[],
-  completions: Completion[],
   passiveHabits: PassiveHabit[],
   passiveChecks: PassiveCheck[],
   start: string,
@@ -468,35 +466,6 @@ export function habitDayRanking(
   asOf: string,
 ): HabitDayRow[] {
   const rows: HabitDayRow[] = [];
-  const seen = new Set<string>();
-  const ordered = [...habits].sort((a, b) => a.order - b.order);
-  for (const habit of ordered) {
-    const lin = lineageOf(habit);
-    if (seen.has(lin)) continue;
-    seen.add(lin);
-    const versions = habits.filter((h) => lineageOf(h) === lin);
-    const display =
-      versions.find((h) => h.activeUntil == null) ?? versions[0] ?? habit;
-    const stats = streakWalk(
-      start,
-      end,
-      asOf,
-      (date) => dueHabits(versions, fromDateKey(date)).length > 0,
-      (date) =>
-        versions.some((h) => isCompleteLineage(completions, habits, h, date)),
-    );
-    if (stats.scheduled === 0) continue;
-    rows.push({
-      key: `r-${lin}`,
-      name: display.name,
-      icon: display.icon,
-      done: stats.done,
-      total: stats.scheduled,
-      rate: stats.rate,
-      bestStreak: stats.bestStreak,
-      currentStreak: stats.currentStreak,
-    });
-  }
   const pSeen = new Set<string>();
   const pOrdered = [...passiveHabits].sort((a, b) => a.order - b.order);
   for (const habit of pOrdered) {

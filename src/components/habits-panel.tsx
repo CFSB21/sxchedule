@@ -51,6 +51,16 @@ export function HabitsPanel({
       side="left"
       title="Hábitos"
       subtitle={`Desde el ${formatLongDate(fromDateKey(date)).toLowerCase()}. El pasado no cambia.`}
+      headerAction={
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label="Añadir hábito"
+        >
+          <Plus className="size-4" />
+        </button>
+      }
       onClose={onClose}
     >
       {due.length === 0 ? (
@@ -78,14 +88,6 @@ export function HabitsPanel({
           })}
         </ul>
       )}
-      <Button
-        variant="outline"
-        className="mt-4 w-full"
-        onClick={() => setCreating(true)}
-      >
-        <Plus className="size-4" />
-        Añadir hábito
-      </Button>
 
       <PassiveFormDialog
         open={creating || Boolean(editing)}

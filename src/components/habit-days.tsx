@@ -15,8 +15,6 @@ import { habitDayRanking } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 
 export function HabitDays() {
-  const habits = useRoutineStore((s) => s.habits);
-  const completions = useRoutineStore((s) => s.completions);
   const passiveHabits = useRoutineStore((s) => s.passiveHabits);
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
   const { scope, year, range } = useStatsYear();
@@ -24,17 +22,8 @@ export function HabitDays() {
   const { start, end, asOf } = range;
 
   const rows = useMemo(
-    () =>
-      habitDayRanking(
-        habits,
-        completions,
-        passiveHabits,
-        passiveChecks,
-        start,
-        end,
-        asOf,
-      ),
-    [habits, completions, passiveHabits, passiveChecks, start, end, asOf],
+    () => habitDayRanking(passiveHabits, passiveChecks, start, end, asOf),
+    [passiveHabits, passiveChecks, start, end, asOf],
   );
   const top = rows.slice(0, 5);
   const label = scope === "all" ? "todos los años" : String(year);
@@ -45,7 +34,7 @@ export function HabitDays() {
       <p className="mt-0.5 text-xs text-muted-foreground">
         {rows.length > 5
           ? "Los 5 hábitos con más días"
-          : "Hábitos de la rutina"}
+          : "Hábitos"}
       </p>
       {top.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
