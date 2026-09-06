@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { dataStart } from "@/lib/alba/day-score";
+import { useRoutineStore } from "@/lib/alba/store";
+import { todayKey } from "@/lib/alba/time";
+import {
+  resolveStatsScope,
+  resolveStatsYear,
+  statsWindow,
+  yearsFromState,
+} from "@/lib/alba/year";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -8,10 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRoutineStore } from "@/lib/alba/store";
-import { todayKey } from "@/lib/alba/time";
-import { resolveStatsYear, yearsFromState } from "@/lib/alba/year";
-import { cn } from "@/lib/utils";
 
 export function useStatsYear() {
   const habits = useRoutineStore((s) => s.habits);
@@ -21,24 +25,20 @@ export function useStatsYear() {
   const todos = useRoutineStore((s) => s.todos);
   const dayOverrides = useRoutineStore((s) => s.dayOverrides);
   const goals = useRoutineStore((s) => s.goals);
-  const stored = useRoutineStore((s) => s.settings.statsYear);
+  const storedYear = useRoutineStore((s) => s.settings.statsYear);
+  const storedScope = useRoutineStore((s) => s.settings.statsScope);
   const updateSettings = useRoutineStore((s) => s.updateSettings);
   const today = todayKey();
 
-  const years = useMemo(
-    () =>
-      yearsFromState(
-        {
-          habits,
-          completions,
-          passiveHabits,
-          passiveChecks,
-          todos,
-          dayOverrides,
-        },
-        goals,
-        today,
-      ),
+  const input = useMemo(
+    () => ({
+      habits,
+      completions,
+      passiveHabits,
+      passiveChecks,
+      todos,
+      dayOverrides,
+    }),
     [
       habits,
       completions,
@@ -46,64 +46,71 @@ export function useStatsYear() {
       passiveChecks,
       todos,
       dayOverrides,
-      goals,
-      today,
     ],
   );
 
-  const year = resolveStatsYear(stored, years, today);
+  const years = useMemo(
+    () => yearsFromState(input, goals, today),
+    [input, goals, today],
+  );
+  const year = resolveStatsYear(storedYear, years, today);
+  const scope = resolveStatsScope(storedScope);
+  const first = useMemo(() => dataStart(input, today), [input, today]);
+  const range = statsWindow(scope, year, today, first);
 
   function setYear(next: number) {
     if (!years.includes(next)) return;
-    updateSettings({ statsYear: next });
+    updateSettings({ statsYear: next, statsScope: "year" });
   }
 
-  return { year, years, setYear, today };
+  function setAll() {
+    updateSettings({ statsScope: "all" });
+  }
+
+  return { year, years, setYear, scope, setAll, today, range };
 }
 
 export function YearSelect({ className }: { className?: string }) {
-  const { year, years, setYear } = useStatsYear();
+  const { year, years, setYear, scope, setAll } = useStatsYear();
   const [open, setOpen] = useState(false);
-  const idx = years.indexOf(year);
-  const older = idx >= 0 ? years[idx + 1] : undefined;
-  const newer = idx > 0 ? years[idx - 1] : undefined;
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Año anterior"
-        disabled={older == null}
-        onClick={() => older != null && setYear(older)}
-      >
-        <ChevronLeft className="size-5" />
-      </Button>
+    <div className={cn("grid grid-cols-2 gap-2", className)}>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Seleccionar año"
-        className="h-11 min-w-24 flex-1 rounded-md bg-secondary px-3 font-display text-xl tabular-nums tracking-tight"
+        aria-pressed={scope === "year"}
+        className={cn(
+          "flex min-h-11 flex-col items-center justify-center rounded-md px-2 py-1.5 text-center text-sm font-medium leading-snug",
+          scope === "year"
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary text-muted-foreground",
+        )}
       >
-        {year}
+        <span>Seleccionar año</span>
+        {scope === "year" ? (
+          <span className="tabular-nums">{year}</span>
+        ) : null}
       </button>
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Año siguiente"
-        disabled={newer == null}
-        onClick={() => newer != null && setYear(newer)}
+        onClick={setAll}
+        aria-pressed={scope === "all"}
+        className={cn(
+          "flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center text-sm font-medium leading-snug",
+          scope === "all"
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary text-muted-foreground",
+        )}
       >
-        <ChevronRight className="size-5" />
-      </Button>
+        Datos de todos los años
+      </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Seleccionar año</DialogTitle>
             <DialogDescription>
-              Las estadísticas y las metas se muestran para el año que elijas.
+              El calendario, las metas y los rankings se muestran para ese año.
             </DialogDescription>
           </DialogHeader>
           <ul className="grid gap-2">
@@ -117,7 +124,7 @@ export function YearSelect({ className }: { className?: string }) {
                   }}
                   className={cn(
                     "flex h-11 w-full items-center justify-center rounded-md text-sm font-medium tabular-nums",
-                    item === year
+                    scope === "year" && item === year
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-muted-foreground",
                   )}

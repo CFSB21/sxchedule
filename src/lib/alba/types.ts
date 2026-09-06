@@ -62,6 +62,8 @@ export type Session = {
 
 export type ThemeMode = "light" | "dark";
 
+export type StatsScope = "year" | "all";
+
 export type YearGoalKind = "hours" | "days";
 
 export type YearGoal = {
@@ -93,6 +95,7 @@ export type Settings = {
   dayParts: DayPartConfig[];
   palette?: Palette;
   statsYear?: number;
+  statsScope?: StatsScope;
 };
 
 export type PassiveHabit = {
@@ -109,6 +112,8 @@ export type PassiveCheck = {
   id: string;
   habitId: string;
   date: string;
+  status?: CompletionStatus;
+  excuse?: string;
 };
 
 export type TodoKind = "task" | "group";
@@ -184,4 +189,5 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "dark",
   dayParts: DEFAULT_DAY_PARTS.map((p) => ({ ...p })),
   statsYear: currentYear(),
+  statsScope: "year",
 };

@@ -124,6 +124,12 @@ type State = {
   updatePassiveHabit: (id: string, draft: PassiveDraft, date: string) => void;
   deletePassiveHabit: (id: string, date: string) => void;
   togglePassiveCheck: (habitId: string, date: string) => void;
+  recordPassiveOutcome: (
+    habitId: string,
+    date: string,
+    status: CompletionStatus,
+    excuse?: string,
+  ) => void;
   addTodo: (
     date: string,
     title: string,
@@ -545,8 +551,33 @@ export const useRoutineStore = create<State>()(
           return {
             passiveChecks: [
               ...s.passiveChecks,
-              { id: `pc-${date}-${habitId}`, habitId, date },
+              {
+                id: `pc-${date}-${habitId}`,
+                habitId,
+                date,
+                status: "done",
+              },
             ],
+          };
+        }),
+
+      recordPassiveOutcome: (habitId, date, status, excuse) =>
+        set((s) => {
+          if (status === "failed" && !excuse?.trim()) return s;
+          const existing = s.passiveChecks.find(
+            (c) => c.habitId === habitId && c.date === date,
+          );
+          const row: PassiveCheck = {
+            id: existing?.id ?? `pc-${date}-${habitId}`,
+            habitId,
+            date,
+            status,
+            excuse: status === "failed" ? excuse!.trim() : undefined,
+          };
+          return {
+            passiveChecks: existing
+              ? s.passiveChecks.map((c) => (c.id === existing.id ? row : c))
+              : [...s.passiveChecks, row],
           };
         }),
 
@@ -879,6 +910,8 @@ export const useRoutineStore = create<State>()(
             palette: normalizePalette(backup.settings?.palette),
             statsYear:
               backup.settings?.statsYear ?? DEFAULT_SETTINGS.statsYear,
+            statsScope:
+              backup.settings?.statsScope === "all" ? "all" : "year",
           },
           session: null,
           initialized: true,
@@ -985,13 +1018,14 @@ export const useRoutineStore = create<State>()(
           p.templates ??
           (habits.length ? templatesFromHabits(habits) : defaultTemplates());
         const fallbackYear = currentYear();
-        const settings = {
+        const settings: Settings = {
           ...DEFAULT_SETTINGS,
           ...p.settings,
-          theme: "dark" as const,
+          theme: "dark",
           dayParts: normalizeDayParts(p.settings?.dayParts),
           palette: normalizePalette(p.settings?.palette),
           statsYear: p.settings?.statsYear ?? fallbackYear,
+          statsScope: p.settings?.statsScope === "all" ? "all" : "year",
         };
         const dayPartSchedules =
           p.dayPartSchedules ?? schedulesFromParts(settings.dayParts);
@@ -1001,11 +1035,16 @@ export const useRoutineStore = create<State>()(
           completions: (p.completions ?? current.completions).map((c) => ({
             ...c,
             status: c.status === "failed" ? "failed" : "done",
+            excuse: c.status === "failed" ? c.excuse : undefined,
           })),
           passiveHabits: (p.passiveHabits ?? defaultPassiveHabits()).map(
             normalizePassive,
           ),
-          passiveChecks: p.passiveChecks ?? [],
+          passiveChecks: (p.passiveChecks ?? []).map((c) => ({
+            ...c,
+            status: c.status === "failed" ? "failed" : "done",
+            excuse: c.status === "failed" ? c.excuse : undefined,
+          })),
           todos: (p.todos ?? []).map(normalizeTodo),
           dayOverrides: p.dayOverrides ?? [],
           templates,

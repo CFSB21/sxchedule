@@ -121,7 +121,7 @@ export function DatosView() {
           <div className="min-w-0 flex-1">
             <h2 className="font-medium">Año de Stats</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Elige el año que ves en Estadísticas. Las metas se quedan en el
+              Un año concreto, o todo el histórico. Las metas se quedan en el
               año en que las creaste.
             </p>
           </div>

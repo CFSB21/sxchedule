@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { SidePanel } from "@/components/side-panel";
+import { OutcomeDialog } from "@/components/outcome-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { HABIT_ICONS } from "@/lib/alba/icons";
 import { useLongPress } from "@/lib/alba/long-press";
 import { duePassives } from "@/lib/alba/schedule";
+import { isPassiveComplete, isPassiveFailed, passiveCheckFor } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 import { DAY_LABELS, DAY_NAMES, formatLongDate, fromDateKey } from "@/lib/alba/time";
 import type { HabitIconId, PassiveHabit } from "@/lib/alba/types";
@@ -32,6 +34,7 @@ export function HabitsPanel({
   const passiveHabits = useRoutineStore((s) => s.passiveHabits);
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
   const togglePassiveCheck = useRoutineStore((s) => s.togglePassiveCheck);
+  const recordPassiveOutcome = useRoutineStore((s) => s.recordPassiveOutcome);
   const addPassiveHabit = useRoutineStore((s) => s.addPassiveHabit);
   const updatePassiveHabit = useRoutineStore((s) => s.updatePassiveHabit);
   const deletePassiveHabit = useRoutineStore((s) => s.deletePassiveHabit);
@@ -40,6 +43,7 @@ export function HabitsPanel({
 
   const [editing, setEditing] = useState<PassiveHabit | null>(null);
   const [creating, setCreating] = useState(false);
+  const [failing, setFailing] = useState<PassiveHabit | null>(null);
 
   return (
     <SidePanel
@@ -56,15 +60,18 @@ export function HabitsPanel({
       ) : (
         <ul className="space-y-2">
           {due.map((habit) => {
-            const done = passiveChecks.some(
-              (c) => c.habitId === habit.id && c.date === date,
-            );
+            const check = passiveCheckFor(passiveChecks, habit.id, date);
+            const done = Boolean(check && isPassiveComplete(passiveChecks, habit.id, date));
+            const failed = Boolean(check && isPassiveFailed(check));
             return (
               <PassiveRow
                 key={habit.id}
                 habit={habit}
                 done={done}
+                failed={failed}
+                excuse={check?.excuse}
                 onToggle={() => togglePassiveCheck(habit.id, date)}
+                onFail={() => setFailing(habit)}
                 onEdit={() => setEditing(habit)}
               />
             );
@@ -107,6 +114,24 @@ export function HabitsPanel({
             : undefined
         }
       />
+      <OutcomeDialog
+        open={Boolean(failing)}
+        habitName={failing?.name ?? ""}
+        startOnExcuse
+        onOpenChange={(next) => {
+          if (!next) setFailing(null);
+        }}
+        onDone={() => {
+          if (!failing) return;
+          recordPassiveOutcome(failing.id, date, "done");
+          toast.success("Completado");
+        }}
+        onFail={(excuse) => {
+          if (!failing) return;
+          recordPassiveOutcome(failing.id, date, "failed", excuse);
+          toast("Marcado como incompleto");
+        }}
+      />
     </SidePanel>
   );
 }
@@ -114,12 +139,18 @@ export function HabitsPanel({
 function PassiveRow({
   habit,
   done,
+  failed,
+  excuse,
   onToggle,
+  onFail,
   onEdit,
 }: {
   habit: PassiveHabit;
   done: boolean;
+  failed: boolean;
+  excuse?: string;
   onToggle: () => void;
+  onFail: () => void;
   onEdit: () => void;
 }) {
   const Icon = HABIT_ICONS[habit.icon];
@@ -127,30 +158,63 @@ function PassiveRow({
   return (
     <li
       {...lp}
-      className="flex select-none items-start gap-3 rounded-lg bg-secondary/70 px-2 py-2"
+      className={cn(
+        "flex select-none items-start gap-3 rounded-lg bg-secondary/70 px-2 py-2",
+        (done || failed) && "opacity-70",
+      )}
     >
       <button
         type="button"
         onClick={onToggle}
         aria-pressed={done}
-        aria-label={done ? `Desmarcar ${habit.name}` : `Completar ${habit.name}`}
+        aria-label={
+          failed
+            ? `Quitar fallo de ${habit.name}`
+            : done
+              ? `Desmarcar ${habit.name}`
+              : `Completar ${habit.name}`
+        }
         className={cn(
           "grid size-11 shrink-0 place-items-center rounded-md transition-colors",
-          done
-            ? "bg-primary text-primary-foreground"
-            : "bg-card text-muted-foreground",
+          done && "bg-primary text-primary-foreground",
+          failed && "bg-destructive text-destructive-foreground",
+          !done && !failed && "bg-card text-muted-foreground",
         )}
       >
-        {done ? <Check className="size-4" /> : <Icon className="size-4" />}
+        {done ? (
+          <Check className="size-4" />
+        ) : failed ? (
+          <X className="size-4" />
+        ) : (
+          <Icon className="size-4" />
+        )}
       </button>
-      <p
-        className={cn(
-          "min-w-0 flex-1 py-2.5 text-sm font-medium break-words",
-          done && "text-muted-foreground line-through",
-        )}
-      >
-        {habit.name}
-      </p>
+      <div className="min-w-0 flex-1 py-1">
+        <p
+          className={cn(
+            "text-sm font-medium break-words",
+            (done || failed) && "text-muted-foreground line-through",
+          )}
+        >
+          {habit.name}
+        </p>
+        {failed ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {excuse ? `Incompleto · ${excuse}` : "Incompleto"}
+          </p>
+        ) : null}
+      </div>
+      {!done && !failed ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Marcar ${habit.name} incompleto`}
+          onClick={onFail}
+        >
+          <X className="size-4" />
+        </Button>
+      ) : null}
     </li>
   );
 }

@@ -91,6 +91,8 @@ const passiveCheckSchema = z.object({
   id: z.string().min(1),
   habitId: z.string().min(1),
   date: dateKey,
+  status: z.enum(["done", "failed"]).optional(),
+  excuse: z.string().max(280).optional(),
 });
 
 const todoSchema = z.object({
@@ -204,7 +206,11 @@ export function parseBackup(input: unknown): AlbaBackup {
       excuse: c.status === "failed" ? c.excuse : undefined,
     })),
     passiveHabits: parsed.passiveHabits ?? defaultPassiveHabits(),
-    passiveChecks: parsed.passiveChecks ?? [],
+    passiveChecks: (parsed.passiveChecks ?? []).map((c) => ({
+      ...c,
+      status: c.status === "failed" ? "failed" : "done",
+      excuse: c.status === "failed" ? c.excuse : undefined,
+    })),
     todos: (parsed.todos ?? []).map(normalizeTodo),
     dayOverrides: parsed.dayOverrides ?? [],
     templates: parsed.templates,
@@ -228,6 +234,7 @@ export function parseBackup(input: unknown): AlbaBackup {
       dayParts: normalizeDayParts(parsed.settings?.dayParts),
       palette: normalizePalette(parsed.settings?.palette),
       statsYear: parsed.settings?.statsYear ?? currentYear(),
+      statsScope: parsed.settings?.statsScope === "all" ? "all" : "year",
     },
   };
 }

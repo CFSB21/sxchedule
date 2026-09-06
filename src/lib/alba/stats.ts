@@ -1,5 +1,11 @@
-import { dueHabits, isActiveOn, lineageOf } from "./schedule";
-import type { Completion, Habit, HabitIconId } from "./types";
+import { dueHabits, duePassives, isActiveOn, lineageOf } from "./schedule";
+import type {
+  Completion,
+  Habit,
+  HabitIconId,
+  PassiveCheck,
+  PassiveHabit,
+} from "./types";
 import { fromDateKey, shiftDateKey, toDateKey, todayKey } from "./time";
 
 export function habitsForDate(habits: Habit[], date: Date) {
@@ -12,6 +18,32 @@ export function isFailedCompletion(c: Completion) {
 
 export function isDoneCompletion(c: Completion) {
   return c.status !== "failed";
+}
+
+export function isPassiveFailed(c: PassiveCheck) {
+  return c.status === "failed";
+}
+
+export function isPassiveDoneCheck(c: PassiveCheck) {
+  return c.status !== "failed";
+}
+
+export function passiveCheckFor(
+  checks: PassiveCheck[],
+  habitId: string,
+  date: string,
+) {
+  return checks.find((c) => c.habitId === habitId && c.date === date);
+}
+
+export function isPassiveComplete(
+  checks: PassiveCheck[],
+  habitId: string,
+  date: string,
+) {
+  return checks.some(
+    (c) => c.habitId === habitId && c.date === date && isPassiveDoneCheck(c),
+  );
 }
 
 export function isComplete(
@@ -366,4 +398,189 @@ export function activityTimeRanking(
     if (b.minutes !== a.minutes) return b.minutes - a.minutes;
     return a.name.localeCompare(b.name, "es");
   });
+}
+
+export type HabitDayRow = {
+  key: string;
+  name: string;
+  icon: HabitIconId;
+  done: number;
+  total: number;
+  rate: number;
+  bestStreak: number;
+  currentStreak: number;
+};
+
+function streakWalk(
+  start: string,
+  end: string,
+  asOf: string,
+  isDue: (date: string) => boolean,
+  isDone: (date: string) => boolean,
+) {
+  let scheduled = 0;
+  let dueSoFar = 0;
+  let done = 0;
+  let best = 0;
+  let run = 0;
+  let date = start;
+  while (date <= end) {
+    if (isDue(date)) {
+      scheduled += 1;
+      if (date <= asOf) {
+        dueSoFar += 1;
+        if (isDone(date)) {
+          done += 1;
+          run += 1;
+          if (run > best) best = run;
+        } else {
+          run = 0;
+        }
+      }
+    }
+    date = shiftDateKey(date, 1);
+  }
+  let current = 0;
+  date = asOf;
+  while (date >= start) {
+    if (isDue(date)) {
+      if (isDone(date)) current += 1;
+      else break;
+    }
+    date = shiftDateKey(date, -1);
+  }
+  return {
+    scheduled,
+    done,
+    rate: dueSoFar === 0 ? 0 : done / dueSoFar,
+    bestStreak: best,
+    currentStreak: current,
+  };
+}
+
+export function habitDayRanking(
+  habits: Habit[],
+  completions: Completion[],
+  passiveHabits: PassiveHabit[],
+  passiveChecks: PassiveCheck[],
+  start: string,
+  end: string,
+  asOf: string,
+): HabitDayRow[] {
+  const rows: HabitDayRow[] = [];
+  const seen = new Set<string>();
+  const ordered = [...habits].sort((a, b) => a.order - b.order);
+  for (const habit of ordered) {
+    const lin = lineageOf(habit);
+    if (seen.has(lin)) continue;
+    seen.add(lin);
+    const versions = habits.filter((h) => lineageOf(h) === lin);
+    const display =
+      versions.find((h) => h.activeUntil == null) ?? versions[0] ?? habit;
+    const stats = streakWalk(
+      start,
+      end,
+      asOf,
+      (date) => dueHabits(versions, fromDateKey(date)).length > 0,
+      (date) =>
+        versions.some((h) => isCompleteLineage(completions, habits, h, date)),
+    );
+    if (stats.scheduled === 0) continue;
+    rows.push({
+      key: `r-${lin}`,
+      name: display.name,
+      icon: display.icon,
+      done: stats.done,
+      total: stats.scheduled,
+      rate: stats.rate,
+      bestStreak: stats.bestStreak,
+      currentStreak: stats.currentStreak,
+    });
+  }
+  const pSeen = new Set<string>();
+  const pOrdered = [...passiveHabits].sort((a, b) => a.order - b.order);
+  for (const habit of pOrdered) {
+    const name = habit.name
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "");
+    if (!name || pSeen.has(name)) continue;
+    pSeen.add(name);
+    const versions = passiveHabits.filter((h) => {
+      const key = h.name
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "");
+      return key === name;
+    });
+    const display =
+      versions.find((h) => h.activeUntil == null) ?? versions[0] ?? habit;
+    const ids = new Set(versions.map((h) => h.id));
+    const stats = streakWalk(
+      start,
+      end,
+      asOf,
+      (date) => duePassives(versions, date).length > 0,
+      (date) => {
+        for (const id of ids) {
+          if (isPassiveComplete(passiveChecks, id, date)) return true;
+        }
+        return false;
+      },
+    );
+    if (stats.scheduled === 0) continue;
+    rows.push({
+      key: `p-${habit.id}`,
+      name: display.name,
+      icon: display.icon,
+      done: stats.done,
+      total: stats.scheduled,
+      rate: stats.rate,
+      bestStreak: stats.bestStreak,
+      currentStreak: stats.currentStreak,
+    });
+  }
+  return rows.sort((a, b) => {
+    if (b.done !== a.done) return b.done - a.done;
+    if (b.rate !== a.rate) return b.rate - a.rate;
+    return a.name.localeCompare(b.name, "es");
+  });
+}
+
+export function excuseCounts(
+  completions: Completion[],
+  start: string,
+  end: string,
+  passiveChecks: PassiveCheck[] = [],
+) {
+  const map = new Map<string, { excuse: string; count: number }>();
+  function add(raw: string) {
+    const text = raw.trim();
+    if (!text) return;
+    const key = text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "");
+    const prev = map.get(key);
+    if (prev) {
+      prev.count += 1;
+      return;
+    }
+    map.set(key, { excuse: text, count: 1 });
+  }
+  for (const c of completions) {
+    if (!isFailedCompletion(c)) continue;
+    if (c.date < start || c.date > end) continue;
+    if (c.excuse) add(c.excuse);
+  }
+  for (const c of passiveChecks) {
+    if (!isPassiveFailed(c)) continue;
+    if (c.date < start || c.date > end) continue;
+    if (c.excuse) add(c.excuse);
+  }
+  return [...map.values()].sort(
+    (a, b) => b.count - a.count || a.excuse.localeCompare(b.excuse, "es"),
+  );
 }

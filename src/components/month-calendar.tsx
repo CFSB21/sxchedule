@@ -34,19 +34,20 @@ export function MonthCalendar() {
   const passiveChecks = useRoutineStore((s) => s.passiveChecks);
   const todos = useRoutineStore((s) => s.todos);
   const dayOverrides = useRoutineStore((s) => s.dayOverrides);
-  const { year } = useStatsYear();
+  const { year, scope } = useStatsYear();
   const today = todayKey();
   const todayDate = fromDateKey(today);
   const todayYear = todayDate.getFullYear();
   const todayMonth = todayDate.getMonth();
-  const months = useMemo(() => monthsOf(year), [year]);
-  const initialMonth = year === todayYear ? todayMonth : 11;
+  const viewYear = scope === "all" ? todayYear : year;
+  const months = useMemo(() => monthsOf(viewYear), [viewYear]);
+  const initialMonth = viewYear === todayYear ? todayMonth : 11;
   const [active, setActive] = useState<MonthRef>({
-    year,
+    year: viewYear,
     month: initialMonth,
   });
   const [selected, setSelected] = useState(
-    year === todayYear ? today : `${year}-01-01`,
+    viewYear === todayYear ? today : `${viewYear}-01-01`,
   );
   const scroller = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
@@ -95,7 +96,7 @@ export function MonthCalendar() {
   function shiftMonth(delta: number) {
     const value = active.month + delta;
     if (value < 0 || value > 11) return;
-    scrollToMonth({ year, month: value }, true);
+    scrollToMonth({ year: viewYear, month: value }, true);
   }
 
   useLayoutEffect(() => {

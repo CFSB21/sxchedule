@@ -1,6 +1,6 @@
 import { dueWithOverrides } from "./overrides";
 import { duePassives } from "./schedule";
-import { isCompleteLineage } from "./stats";
+import { isCompleteLineage, isPassiveComplete } from "./stats";
 import { fromDateKey, toDateKey } from "./time";
 import { todoProgress } from "./todos";
 import type {
@@ -67,7 +67,7 @@ export function dayScore(
   ).length;
   const passives = duePassives(input.passiveHabits, dateKey);
   const passivesDone = passives.filter((h) =>
-    input.passiveChecks.some((c) => c.habitId === h.id && c.date === dateKey),
+    isPassiveComplete(input.passiveChecks, h.id, dateKey),
   ).length;
   const todos = todoProgress(input.todos, dateKey);
   const total = routine.length + passives.length + todos.total;

@@ -1,12 +1,31 @@
 import { dataStart, type ScoreInput } from "./day-score";
 import { fromDateKey } from "./time";
-import type { YearGoal } from "./types";
+import type { StatsScope, YearGoal } from "./types";
 
 export function yearRange(year: number, today: string) {
   const start = `${year}-01-01`;
   const end = `${year}-12-31`;
   const asOf = today < start ? start : today > end ? end : today;
   return { start, end, asOf };
+}
+
+export function statsWindow(
+  scope: StatsScope,
+  year: number,
+  today: string,
+  first: string,
+) {
+  if (scope === "all") {
+    const startYear = fromDateKey(first < today ? first : today).getFullYear();
+    const start = `${startYear}-01-01`;
+    const nowYear = fromDateKey(today).getFullYear();
+    return {
+      start: first < start ? first : start,
+      end: `${nowYear}-12-31`,
+      asOf: today,
+    };
+  }
+  return yearRange(year, today);
 }
 
 export function availableYears(
@@ -46,4 +65,8 @@ export function resolveStatsYear(
   const nowY = fromDateKey(today).getFullYear();
   if (years.includes(nowY)) return nowY;
   return years[0] ?? nowY;
+}
+
+export function resolveStatsScope(stored: StatsScope | undefined): StatsScope {
+  return stored === "all" ? "all" : "year";
 }

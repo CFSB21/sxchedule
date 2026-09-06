@@ -28,6 +28,7 @@ import {
   completionForLineage,
   dayMinutes,
   isCompleteLineage,
+  isPassiveComplete,
 } from "@/lib/alba/stats";
 import { useRoutineStore } from "@/lib/alba/store";
 import {
@@ -88,7 +89,7 @@ export function TodayView({
 
   const customsDue = duePassives(passiveHabits, date);
   const customsDone = customsDue.filter((h) =>
-    passiveChecks.some((c) => c.habitId === h.id && c.date === date),
+    isPassiveComplete(passiveChecks, h.id, date),
   );
   const { done: todosDone, total: todoTotal } = todoProgress(todos, date);
 
@@ -351,6 +352,7 @@ function HabitRow({
     !awaiting &&
     !sessionActive &&
     (phase === "idle" || phase === "upcoming");
+  const canFail = !done && !failed && !awaiting;
   const lp = useLongPress(onEdit);
 
   return (
@@ -393,7 +395,7 @@ function HabitRow({
         <div className="min-w-0 flex-1">
           <p
             className={cn(
-              "truncate font-medium",
+              "font-medium break-words",
               (done || failed) && "text-muted-foreground line-through",
             )}
           >
@@ -407,29 +409,43 @@ function HabitRow({
               : `${habit.scheduledTime ? `${habit.scheduledTime} · ` : ""}${habit.durationMin} min${overridden ? " · hoy" : ""}`}
           </p>
         </div>
-        {clock ? (
-          <div className="shrink-0 text-right">
-            <p
-              className={cn(
-                "font-display text-lg tabular-nums leading-none tracking-tight",
-                phase === "running" && "text-primary",
-              )}
-            >
-              {clock}
-            </p>
-            <p className="mt-0.5 text-xs tracking-wide text-muted-foreground uppercase">
-              {clockHint}
-            </p>
+        {clock || canPlay || canFail ? (
+          <div className="flex shrink-0 items-center">
+            {clock ? (
+              <div className="pr-1 text-right">
+                <p
+                  className={cn(
+                    "font-display text-lg tabular-nums leading-none tracking-tight",
+                    phase === "running" && "text-primary",
+                  )}
+                >
+                  {clock}
+                </p>
+                <p className="mt-0.5 text-xs tracking-wide text-muted-foreground uppercase">
+                  {clockHint}
+                </p>
+              </div>
+            ) : canPlay ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Iniciar ${habit.name}`}
+                onClick={onPlay}
+              >
+                <Play className="size-4" />
+              </Button>
+            ) : null}
+            {canFail ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Marcar ${habit.name} incompleta`}
+                onClick={onAskFail}
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
           </div>
-        ) : canPlay ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Iniciar ${habit.name}`}
-            onClick={onPlay}
-          >
-            <Play className="size-4" />
-          </Button>
         ) : null}
       </div>
       {awaiting ? (

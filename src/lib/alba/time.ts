@@ -51,7 +51,7 @@ export function formatMinutes(min: number) {
   const m = safe % 60;
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  return `${h}h\u00a0${m}m`;
 }
 
 export function formatClock(ms: number) {

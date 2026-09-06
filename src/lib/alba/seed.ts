@@ -169,6 +169,14 @@ const TODO_TITLES = [
   "Preparar la comida",
 ];
 
+const EXCUSES = [
+  "Se me hizo tarde",
+  "No tenía ganas",
+  "Reunión inesperada",
+  "Dormí mal",
+  "Salí de casa",
+];
+
 function fillHistory(
   now: Date,
   startOffset: number,
@@ -190,7 +198,21 @@ function fillHistory(
       const roll = hash01(`${key}:${habit.id}`);
       const keep =
         forceComplete || roll > missChance(habit.lineageId ?? habit.id, dow);
-      if (!keep) continue;
+      if (!keep) {
+        const failRoll = hash01(`fail:${key}:${habit.id}`);
+        if (!forceComplete && failRoll > 0.42) {
+          completions.push({
+            id: `c-${key}-${habit.id}`,
+            habitId: habit.id,
+            date: key,
+            durationMin: 0,
+            completedAt: `${key}T12:00:00.000Z`,
+            status: "failed",
+            excuse: EXCUSES[Math.floor(failRoll * EXCUSES.length)]!,
+          });
+        }
+        continue;
+      }
       const variance = 0.86 + roll * 0.22;
       completions.push({
         id: `c-${key}-${habit.id}`,
@@ -209,7 +231,19 @@ function fillHistory(
           id: `pc-${key}-${custom.id}`,
           habitId: custom.id,
           date: key,
+          status: "done",
         });
+      } else {
+        const failRoll = hash01(`pfail:${key}:${custom.id}`);
+        if (failRoll > 0.4) {
+          passiveChecks.push({
+            id: `pc-${key}-${custom.id}`,
+            habitId: custom.id,
+            date: key,
+            status: "failed",
+            excuse: EXCUSES[Math.floor(failRoll * EXCUSES.length)]!,
+          });
+        }
       }
     }
     if (dow !== 0) {

@@ -20,7 +20,7 @@ import {
   uniqueNames,
 } from "@/lib/alba/goals";
 import { useRoutineStore } from "@/lib/alba/store";
-import { todayKey } from "@/lib/alba/time";
+import { currentYear, todayKey } from "@/lib/alba/time";
 import type { YearGoal, YearGoalKind } from "@/lib/alba/types";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ export function GoalsTracker() {
   const addGoal = useRoutineStore((s) => s.addGoal);
   const updateGoal = useRoutineStore((s) => s.updateGoal);
   const deleteGoal = useRoutineStore((s) => s.deleteGoal);
-  const { year } = useStatsYear();
+  const { year, scope } = useStatsYear();
   const today = todayKey();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<YearGoal | null>(null);
@@ -56,7 +56,7 @@ export function GoalsTracker() {
   const rows = useMemo(
     () =>
       goals
-        .filter((goal) => goal.year === year)
+        .filter((goal) => (scope === "all" ? true : goal.year === year))
         .map((goal) =>
           progressForGoal(
             goal,
@@ -64,7 +64,16 @@ export function GoalsTracker() {
             today,
           ),
         ),
-    [goals, habits, completions, passiveHabits, passiveChecks, year, today],
+    [
+      goals,
+      habits,
+      completions,
+      passiveHabits,
+      passiveChecks,
+      year,
+      scope,
+      today,
+    ],
   );
 
   function openAdd() {
@@ -97,7 +106,7 @@ export function GoalsTracker() {
       addGoal({
         kind: draft.kind,
         name: draft.name,
-        year,
+        year: scope === "all" ? currentYear() : year,
         targetHours: Number(draft.targetHours),
       });
       toast.success("Meta añadida");
@@ -110,7 +119,9 @@ export function GoalsTracker() {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h2 className="font-medium">Metas del año</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">{year}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {scope === "all" ? "Todos los años" : year}
+          </p>
         </div>
         <button
           type="button"
@@ -124,12 +135,18 @@ export function GoalsTracker() {
 
       {rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Aún no hay metas para {year}. Añade una de horas o de días.
+          Aún no hay metas{scope === "all" ? "" : ` para ${year}`}. Añade una
+          de horas o de días.
         </p>
       ) : (
         <ul className="mt-4 space-y-3">
           {rows.map((row) => (
-            <GoalRow key={row.goal.id} row={row} onEdit={() => openEdit(row.goal)} />
+            <GoalRow
+              key={row.goal.id}
+              row={row}
+              showYear={scope === "all"}
+              onEdit={() => openEdit(row.goal)}
+            />
           ))}
         </ul>
       )}
@@ -237,9 +254,11 @@ export function GoalsTracker() {
 
 function GoalRow({
   row,
+  showYear,
   onEdit,
 }: {
   row: ReturnType<typeof progressForGoal>;
+  showYear: boolean;
   onEdit: () => void;
 }) {
   const lp = useLongPress(onEdit);
@@ -256,9 +275,11 @@ function GoalRow({
           <Icon className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="truncate text-sm font-medium">{row.goal.name}</p>
-            <p className="text-sm tabular-nums">
+          <div className="flex items-start gap-3">
+            <p className="min-w-0 flex-1 text-sm font-medium break-words">
+              {row.goal.name}
+            </p>
+            <p className="min-w-16 shrink-0 text-right text-sm tabular-nums whitespace-nowrap">
               {formatGoalDone(row.goal.kind, row.done)}
               <span className="text-muted-foreground">
                 {" / "}
@@ -275,6 +296,7 @@ function GoalRow({
           <p className="mt-1 text-xs tabular-nums text-muted-foreground">
             {pct}%
             {row.matched ? "" : " · sin coincidencia"}
+            {showYear ? ` · ${row.goal.year}` : ""}
           </p>
         </div>
       </div>
