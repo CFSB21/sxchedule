@@ -12,6 +12,7 @@ import { overrideFor } from "./overrides";
 import {
   applyTemplateToHabits,
   closeFrom,
+  isActiveOn,
   isOpen,
   normalizeHabit,
   normalizePassive,
@@ -533,7 +534,7 @@ export const useRoutineStore = create<State>()(
           }
           return {
             passiveHabits: s.passiveHabits.map((h) =>
-              h.id === id && isOpen(h) ? closeFrom(h, date) : h,
+              h.id === id && isActiveOn(h, date) ? closeFrom(h, date) : h,
             ),
           };
         }),
