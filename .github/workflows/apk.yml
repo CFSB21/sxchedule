@@ -27,6 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run build:android
       - run: npx cap add android
+      - run: node scripts/apply-android-icons.mjs
       - run: npx cap sync android
       - name: Assemble debug APK
         working-directory: android

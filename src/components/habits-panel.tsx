@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HABIT_ICONS } from "@/lib/alba/icons";
+import { HABIT_ICON_IDS, HABIT_ICONS } from "@/lib/alba/icons";
 import { useLongPress } from "@/lib/alba/long-press";
 import { duePassives } from "@/lib/alba/schedule";
 import { isPassiveComplete, isPassiveFailed, passiveCheckFor } from "@/lib/alba/stats";
@@ -239,6 +239,7 @@ function PassiveFormDialog({
   onDelete?: () => void;
 }) {
   const [name, setName] = useState("");
+  const [icon, setIcon] = useState<HabitIconId>("leaf");
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -246,6 +247,7 @@ function PassiveFormDialog({
     if (!open) return;
     setConfirmDelete(false);
     setName(habit?.name ?? "");
+    setIcon(habit?.icon ?? "leaf");
     setDays(habit ? [...habit.days] : [0, 1, 2, 3, 4, 5, 6]);
   }, [open, habit]);
 
@@ -255,7 +257,7 @@ function PassiveFormDialog({
     if (!value) return;
     onSave({
       name: value,
-      icon: habit?.icon ?? "leaf",
+      icon,
       days: days.length ? days : [0, 1, 2, 3, 4, 5, 6],
     });
     onOpenChange(false);
@@ -263,7 +265,7 @@ function PassiveFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{habit ? "Editar hábito" : "Nuevo hábito"}</DialogTitle>
           <DialogDescription>
@@ -281,6 +283,32 @@ function PassiveFormDialog({
               maxLength={80}
               required
             />
+          </div>
+          <div className="grid gap-2">
+            <Label>Icono</Label>
+            <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7">
+              {HABIT_ICON_IDS.map((id) => {
+                const Icon = HABIT_ICONS[id];
+                const selected = icon === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setIcon(id)}
+                    className={cn(
+                      "grid size-11 place-items-center rounded-md transition-colors",
+                      selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-label={id}
+                    aria-pressed={selected}
+                  >
+                    <Icon className="size-4" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="grid gap-2">
             <Label>Días</Label>
